@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PORTARIA UNITEC </title>
-    <style>
+    <title>TESTE </title>    <style>
         :root {
             --cor-primaria: #1E3A8A;
             --cor-secundaria: #3B82F6;
@@ -1016,8 +1015,7 @@
     <div id="selectionScreen" class="login-container">
         <div class="login-header">
             <div class="login-logo">🏭</div>
-            <h1>PORTARIA UNITEC</h1>
-            <p>Selecione o tipo de acesso</p>
+            <h1>TESTE</h1>            <p>Selecione o tipo de acesso</p>
         </div>
 
         <div style="display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 60px; max-width: 1200px; width: 100%; flex-wrap: wrap;">
@@ -1062,8 +1060,7 @@
     <div id="loginScreen" class="login-container" style="display: none;">
         <div class="login-header">
             <div class="login-logo">🏭</div>
-            <h1 id="loginTitle">PORTARIA UNITEC V14 AZUL</h1>
-            <p id="loginSubtitle">Sistema Profissional - Tema Azul</p>
+            <h1 id="loginTitle">TESTE V14 AZUL</h1>            <p id="loginSubtitle">Sistema Profissional - Tema Azul</p>
         </div>
 
         <div class="login-form" id="loginForm">
@@ -1087,7 +1084,7 @@
         <div class="appbar">
             <div class="appbar-left">
                 <div class="appbar-logo">🏭</div>
-                <div class="breadcrumb" id="breadcrumb">PORTARIA UNITEC - DASHBOARD</div>
+                <div class="breadcrumb" id="breadcrumb">TESTE - DASHBOARD</div>
             </div>
             <div class="appbar-right">
                 <div class="user-chip">
@@ -1118,7 +1115,7 @@
             <!-- Dashboard -->
             <div id="dashboardPage" class="page">
                 <div class="dashboard-banner">
-                    <h2>BEM-VINDO À PORTARIA UNITEC</h2>
+                    <h2>BEM-VINDO À TESTE</h2>
                     <p id="currentDateTime"></p>
                 </div>
 
@@ -1734,7 +1731,7 @@
                         <div class="form-row">
                             <div class="form-field">
                                 <label for="configNomeEmpresa">Nome da Empresa</label>
-                                <input type="text" id="configNomeEmpresa" value="PORTARIA UNITEC">
+                                <input type="text" id="configNomeEmpresa" value="TESTE">
                             </div>
                             <div class="form-field">
                                 <label for="configEmailEmpresa">Email da Empresa</label>
@@ -1917,7 +1914,7 @@
         }
 
         function carregarDados() {
-            console.log('🚀 SISTEMA PORTARIA UNITEC - INICIALIZANDO...');
+            console.log('🚀 SISTEMA TESTE - INICIALIZANDO...');
             console.log('✅ Array de usuários criado e compartilhado');
             console.log('✅ Admin pré-cadastrado');
             console.log('✅ 4 PORTEIROS PRÉ-CADASTRADOS:');
@@ -2060,7 +2057,7 @@
             // V14 FINAL - Always blue theme
             currentTheme = 'azul';
             
-            console.log('🎉 PORTARIA UNITEC V14 FINAL - SISTEMA COM SUPERVISOR!');
+            console.log('🎉 TESTE V14 FINAL - SISTEMA COM SUPERVISOR!');
             console.log('');
             console.log('📊 DADOS INICIAIS:');
             console.log('   • Visitantes:', visitantes.length);
@@ -2364,21 +2361,21 @@
         function navigateTo(page) {
             // Update breadcrumb
             const breadcrumbs = {
-                'dashboard': 'PORTARIA UNITEC - DASHBOARD',
-                'dashboard-admin': 'PORTARIA UNITEC - PAINEL ADMINISTRATIVO',
-                'gerenciar-usuarios': 'PORTARIA UNITEC - GERENCIAR USUÁRIOS',
-                'apagar-registros': 'PORTARIA UNITEC - APAGAR REGISTROS',
-                'resetar-senhas': 'PORTARIA UNITEC - RESETAR SENHAS',
-                'configuracoes': 'PORTARIA UNITEC - CONFIGURAÇÕES',
-                'logs': 'PORTARIA UNITEC - LOGS DE AUDITORIA',
-                'backups': 'PORTARIA UNITEC - BACKUPS',
-                'visitantes': 'PORTARIA UNITEC - VISITANTES',
-                'entradas': 'PORTARIA UNITEC - ENTRADAS E SAÍDAS',
-                'motoristas': 'PORTARIA UNITEC - MOTORISTAS',
-                                'motoristas-es': 'PORTARIA UNITEC - MOTORISTAS E/S',
-                'agenda': 'PORTARIA UNITEC - AGENDA DE CONTATOS',
-                'busca': 'PORTARIA UNITEC - BUSCA',
-                'relatorios': 'PORTARIA UNITEC - RELATÓRIOS'
+                'dashboard': 'TESTE - DASHBOARD',
+                'dashboard-admin': 'TESTE - PAINEL ADMINISTRATIVO',
+                'gerenciar-usuarios': 'TESTE - GERENCIAR USUÁRIOS',
+                'apagar-registros': 'TESTE - APAGAR REGISTROS',
+                'resetar-senhas': 'TESTE - RESETAR SENHAS',
+                'configuracoes': 'TESTE - CONFIGURAÇÕES',
+                'logs': 'TESTE - LOGS DE AUDITORIA',
+                'backups': 'TESTE - BACKUPS',
+                'visitantes': 'TESTE - VISITANTES',
+                'entradas': 'TESTE - ENTRADAS E SAÍDAS',
+                'motoristas': 'TESTE - MOTORISTAS',
+                                'motoristas-es': 'TESTE - MOTORISTAS E/S',
+                'agenda': 'TESTE - AGENDA DE CONTATOS',
+                'busca': 'TESTE - BUSCA',
+                'relatorios': 'TESTE - RELATÓRIOS'
             };
             document.getElementById('breadcrumb').textContent = breadcrumbs[page];
 
