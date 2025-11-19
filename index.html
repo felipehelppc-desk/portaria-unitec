@@ -2375,6 +2375,7 @@
                 'visitantes': 'PORTARIA UNITEC - VISITANTES',
                 'entradas': 'PORTARIA UNITEC - ENTRADAS E SAÍDAS',
                 'motoristas': 'PORTARIA UNITEC - MOTORISTAS',
+                                'motoristas-es': 'PORTARIA UNITEC - MOTORISTAS E/S',
                 'agenda': 'PORTARIA UNITEC - AGENDA DE CONTATOS',
                 'busca': 'PORTARIA UNITEC - BUSCA',
                 'relatorios': 'PORTARIA UNITEC - RELATÓRIOS'
@@ -2427,6 +2428,8 @@
                 } else {
                     document.getElementById('tabNovo').style.display = 'block';
                 }
+                        } else if (page === 'motoristas-es') {
+                            renderMotoristasES();
             } else if (page === 'agenda') {
                 renderAgenda();
             } else if (page === 'busca') {
@@ -4683,6 +4686,95 @@
                     }
                 });
             }
+
+                    // =========== MOTORISTAS E/S FUNCTIONS ===========
+
+                    function registrarEntradaMotorista(event) {
+                                    event.preventDefault();
+
+                                    const motoristaId = document.getElementById('motoristaESSelect').value;
+                                    const motivo = document.getElementById('motivoES').value;
+                                    const observacoes = document.getElementById('observacoesES').value;
+
+                                    if (!motoristaId || !motivo) {
+                                                        alert('Preencha todos os campos obrigatórios!');
+                                                        return;
+                                                    }
+
+                                    const motorista = motoristas.find(m => m.id == motoristaId);
+                                    if (!motorista) {
+                                                        alert('Motorista não encontrado!');
+                                                        return;
+                                                    }
+
+                                    const entrada = {
+                                                        id: Date.now(),
+                                                        motoristaId: motoristaId,
+                                                        motoristaNome: motorista.nome,
+                                                        motivo: motivo,
+                                                        observacoes: observacoes,
+                                                        dataHoraSaida: new Date().toLocaleString('pt-BR'),
+                                                        dataHoraRetorno: null,
+                                                        status: 'em transito'
+                                                                        };
+
+                                    motoristasES.push(entrada);
+                                    salvarDados();
+                                    resetFormMotoristaES();
+                                    renderMotoristasES();
+                                    alert('Saída registrada com sucesso!');
+                                }
+
+                    function resetFormMotoristaES() {
+                                    document.getElementById('formMotoristaES').reset();
+                                }
+
+                    function registrarRetornoMotorista(id) {
+                                    const entrada = motoristasES.find(e => e.id === id);
+                                    if (entrada) {
+                                                        entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
+                                                        entrada.status = 'retornado';
+                                                        salvarDados();
+                                                        renderMotoristasES();
+                                                        alert('Retorno registrado!');
+                                                    }
+                                }
+
+                    function renderMotoristasES() {
+                                    // Populate motorista select dropdown
+                                    const select = document.getElementById('motoristaESSelect');
+                                    select.innerHTML = '<option value="">Selecione...</option>';
+                                    motoristas.forEach(m => {
+                                                        select.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
+                                                    });
+
+                                    // Render motoristas em trânsito
+                                    const transitoTbody = document.getElementById('motoristasTransitoTbody');
+                                    const emTransito = motoristasES.filter(e => e.status === 'em transito');
+                                    transitoTbody.innerHTML = emTransito.map(e => `
+                                                    <tr>
+                                                                        <td>${e.motoristaNome}</td>
+                                                                                            <td>${e.motivo}</td>
+                                                                                                                <td>${e.dataHoraSaida}</td>
+                                                                                                                                    <td>${e.observacoes || '-'}</td>
+                                                                                                                                                        <td><button onclick="registrarRetornoMotorista(${e.id})" class="btn-success">Registrar Retorno</button></td>
+                                                                                                                                                                        </tr>
+                                                                                                                                                                                    `).join('') || '<tr><td colspan="5" style="text-align:center;">Nenhum motorista em trânsito</td></tr>';
+
+                                    // Render retornos finalizados hoje
+                                    const retornosTbody = document.getElementById('retornosFinalizadosTbody');
+                                    const hoje = new Date().toLocaleDateString('pt-BR');
+                                    const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
+                                    retornosTbody.innerHTML = retornosHoje.map(e => `
+                                                    <tr>
+                                                                        <td>${e.motoristaNome}</td>
+                                                                                            <td>${e.motivo}</td>
+                                                                                                                <td>${e.dataHoraSaida}</td>
+                                                                                                                                    <td>${e.dataHoraRetorno}</td>
+                                                                                                                                                        <td>${e.observacoes || '-'}</td>
+                                                                                                                                                                        </tr>
+                                                                                                                                                                                    `).join('') || '<tr><td colspan="5" style="text-align:center;">Nenhum retorno finalizado hoje</td></tr>';
+                                }
             
             // Initialize audit log
             addAuditLog('SISTEMA_INICIADO', 'Sistema iniciado com sucesso');
