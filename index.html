@@ -1388,6 +1388,65 @@
                 </div>
             </div>
 
+                    <!-- Motoristas E/S Page -->
+        <div id="motoristas-esPage" class="page hidden">
+            <div class="module-header">
+                <h2 class="module-title">Controle de Entradas e Saídas - Motoristas</h2>
+            </div>
+            
+            <div class="section" id="motoristaESFormSection">
+                <h3 class="section-title">🚗 Registrar Entrada de Motorista</h3>
+                <form id="motoristaESForm" onsubmit="registrarEntradaMotorista(event)">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label for="esMotoristaSelect">Motorista *</label>
+                            <select id="esMotoristaSelect" required>
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="esVeiculo">Veículo/Placa *</label>
+                            <input type="text" id="esVeiculo" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="esDestino">Destino</label>
+                            <input type="text" id="esDestino">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field" style="grid-column: span 3;">
+                            <label for="esObservacoes">Observações</label>
+                            <textarea id="esObservacoes"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-small btn-reset" onclick="resetFormMotoristaES()">Limpar</button>
+                        <button type="submit" class="btn-small btn-submit">Registrar Entrada</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="section">
+                <h3 class="section-title">🚗 Motoristas em Trânsito</h3>
+                <div class="table-container" id="motoristasTransitoContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🚗</div>
+                        <div class="empty-state-text">Nenhum motorista em trânsito</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3 class="section-title">✅ Retornos Finalizados Hoje</h3>
+                <div class="table-container" id="motoristasRetornosContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
             <!-- Agenda Page -->
             <div id="agendaPage" class="page hidden">
                 <div class="module-header">
@@ -1812,6 +1871,7 @@
         let visitantes = [];
         let entradas = [];
         let motoristas = [];
+                let motoristasES = [];
         let usuarios = [
             { id: 1, nome: 'ADMIN', email: 'admin@portaria.com', senha: 'admin123', perfil: 'ADMIN', cor: '#1E3A8A', tipo: 'admin', dataCriacao: new Date('2025-11-13') },
             { id: 2, nome: 'EVILÁSIO GARCEZ', email: 'evilasio@portaria.com', senha: '12345', perfil: 'PORTEIRO', cor: '#1E3A8A', tipo: 'porteiro', dataCriacao: new Date('2025-11-13') },
@@ -2244,10 +2304,18 @@
                         <span class="menu-icon">🚗</span>
                         <span>Motoristas</span>
                     </div>
+                                <div class="menu-item" onclick="navigateTo('motoristas-es')">
+                <span class="menu-icon">🚗</span>
+                <span>Motoristas E/S</span>
+            </div>
                     <div class="menu-item" onclick="navigateTo('agenda')">
                         <span class="menu-icon">📇</span>
                         <span>Agenda</span>
                     </div>
+                                <div class="menu-item" onclick="navigateTo('motoristas-es')">
+                <span class="menu-icon">🚗</span>
+                <span>Motoristas E/S</span>
+            </div>
                     <div class="menu-item" onclick="navigateTo('busca')">
                         <span class="menu-icon">🔍</span>
                         <span>Busca</span>
