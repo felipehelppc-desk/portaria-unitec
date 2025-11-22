@@ -1396,21 +1396,25 @@
                 <form id="motoristaESForm" onsubmit="registrarEntradaMotorista(event)">
                     <div class="form-row">
                         <div class="form-field">
+                            <label for="esTransportadora">Transportadora *</label>
+                            <input type="text" id="esTransportadora" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="esVeiculo">Placa *</label>
+                            <input type="text" id="esVeiculo" required>
+                        </div>
+                        <div class="form-field">
                             <label for="motoristaESSelect">Motorista *</label>
                             <select id="motoristaESSelect" required>
                                 <option value="">Selecione...</option>
                             </select>
                         </div>
-                        <div class="form-field">
-                            <label for="esVeiculo">Veículo/Placa *</label>
-                            <input type="text" id="esVeiculo" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="esDestino">Destino</label>
-                            <input type="text" id="esDestino">
-                        </div>
                     </div>
                     <div class="form-row">
+                        <div class="form-field">
+                            <label for="esCliente">Cliente</label>
+                            <input type="text" id="esCliente">
+                        </div>
                         <div class="form-field">
                             <label for="esNotaFiscal">Nota Fiscal</label>
                             <input type="text" id="esNotaFiscal" placeholder="Ex: 12345">
@@ -1424,12 +1428,6 @@
                             <input type="text" id="esVolume" placeholder="Ex: 10m³">
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-field" style="grid-column: span 3;">
-                            <label for="esObservacoes">Observações</label>
-                            <textarea id="esObservacoes"></textarea>
-                        </div>
-                    </div>
                     <div class="form-actions">
                         <button type="button" class="btn-small btn-reset" onclick="resetFormMotoristaES()">Limpar</button>
                         <button type="submit" class="btn-small btn-submit">Registrar Entrada</button>
@@ -1438,11 +1436,11 @@
             </div>
 
             <div class="section">
-                <h3 class="section-title">🚗 Motoristas em Trânsito</h3>
+                <h3 class="section-title">🚗 Veículos em Pátio</h3>
                 <div class="table-container" id="motoristasTransitoContainer">
                     <div class="empty-state">
                         <div class="empty-state-icon">🚗</div>
-                        <div class="empty-state-text">Nenhum motorista em trânsito</div>
+                        <div class="empty-state-text">Nenhum veículo em pátio</div>
                     </div>
                 </div>
             </div>
@@ -3566,10 +3564,9 @@
                 `;
             }
 
-            const emTransito = motoristasES.filter(e => e.status === 'em transito').length;
-            const retornados = motoristasES.filter(e => e.status === 'retornado').length;
-            const hoje = new Date().toLocaleDateString('pt-BR');
-            const retornadosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje)).length;
+            const patio = motoristasES.filter(e => e.status === 'patio').length;
+            const finalizadas = motoristasES.filter(e => e.status === 'saida').length;
+            const finalizadasHoje = motoristasES.filter(e => e.status === 'saida' && isToday(e.dataSaida)).length;
 
             return `
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
@@ -3578,15 +3575,15 @@
                         <div style="font-size: 14px;">Total de Movimentações</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${emTransito}</div>
-                        <div style="font-size: 14px;">Em Trânsito</div>
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${patio}</div>
+                        <div style="font-size: 14px;">Em Pátio</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${retornados}</div>
-                        <div style="font-size: 14px;">Total Retornados</div>
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${finalizadas}</div>
+                        <div style="font-size: 14px;">Total Finalizados</div>
                     </div>
                     <div style="background: linear-gradient(135deg, #059669, #047857); color: white; padding: 20px; border-radius: 10px; text-align: center;">
-                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${retornadosHoje}</div>
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${finalizadasHoje}</div>
                         <div style="font-size: 14px;">Saídas Finalizadas Hoje</div>
                     </div>
                 </div>
@@ -3595,34 +3592,30 @@
                         <thead>
                             <tr>
                                 <th>Status</th>
+                                <th>Transportadora</th>
+                                <th>Placa</th>
                                 <th>Motorista</th>
-                                <th>Veículo</th>
-                                <th>Destino</th>
-                                <th>Nota Fiscal</th>
-                                <th>Peso (kg)</th>
-                                <th>Volume</th>
+                                <th>Entrada</th>
                                 <th>Saída</th>
-                                <th>Retorno</th>
+                                <th>Permanência</th>
                                 <th>Porteiro</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${motoristasES.map(e => {
-                                const statusBadge = e.status === 'em transito' 
-                                    ? '<span style="background: #3B82F6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">🚗 EM TRÂNSITO</span>'
-                                    : '<span style="background: #10B981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">✅ RETORNADO</span>';
+                                const statusBadge = e.status === 'patio' 
+                                    ? '<span style="background: #3B82F6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">🚗 EM PÁTIO</span>'
+                                    : '<span style="background: #10B981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">✅ FINALIZADO</span>';
                                 
                                 return `
                                     <tr>
                                         <td>${statusBadge}</td>
-                                        <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
-                                        <td>${escapeHtml(e.veiculo)}</td>
-                                        <td>${escapeHtml(e.destino || '-')}</td>
-                                        <td>${escapeHtml(e.notaFiscal || '-')}</td>
-                                        <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
-                                        <td>${escapeHtml(e.volume || '-')}</td>
-                                        <td>${e.dataHoraSaida}</td>
-                                        <td>${e.dataHoraRetorno || '-'}</td>
+                                        <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                        <td>${escapeHtml(e.placa)}</td>
+                                        <td>${escapeHtml(e.motorista)}</td>
+                                        <td>${formatDateTime(e.dataEntrada)}</td>
+                                        <td>${e.dataSaida ? formatDateTime(e.dataSaida) : '-'}</td>
+                                        <td>${e.dataSaida ? '<strong>' + calcularPermanenciaMinutos(e.dataEntrada, e.dataSaida) + ' minutos</strong>' : '-'}</td>
                                         <td>${e.porteiroNome}</td>
                                     </tr>
                                 `;
@@ -5009,15 +5002,15 @@
                 return;
             }
 
+            const transportadora = document.getElementById('esTransportadora').value;
+            const placa = document.getElementById('esVeiculo').value;
             const motoristaId = document.getElementById('motoristaESSelect').value;
-            const veiculo = document.getElementById('esVeiculo').value;
-            const destino = document.getElementById('esDestino').value;
+            const cliente = document.getElementById('esCliente').value;
             const notaFiscal = document.getElementById('esNotaFiscal').value;
             const peso = document.getElementById('esPeso').value;
             const volume = document.getElementById('esVolume').value;
-            const observacoes = document.getElementById('esObservacoes').value;
 
-            if (!motoristaId || !veiculo) {
+            if (!transportadora || !placa || !motoristaId) {
                 alert('Preencha todos os campos obrigatórios!');
                 return;
             }
@@ -5031,34 +5024,35 @@
             // SECURITY: Sanitize all inputs
             const entrada = {
                 id: Date.now(),
+                transportadora: converterMaiusculas(sanitizeInput(transportadora, 100)),
+                placa: converterMaiusculas(sanitizeInput(placa, 10)),
+                motorista: motorista.nome,
                 motoristaId: motoristaId,
-                motoristaNome: motorista.nome,
-                veiculo: converterMaiusculas(sanitizeInput(veiculo, 50)),
-                destino: converterMaiusculas(sanitizeInput(destino, 100)),
-                notaFiscal: converterMaiusculas(sanitizeInput(notaFiscal, 50)),
+                cliente: converterMaiusculas(sanitizeInput(cliente, 100)),
+                nota: converterMaiusculas(sanitizeInput(notaFiscal, 50)),
                 peso: peso ? parseFloat(peso) : null,
                 volume: converterMaiusculas(sanitizeInput(volume, 50)),
-                observacoes: converterMaiusculas(sanitizeInput(observacoes, 500)),
-                dataHoraSaida: new Date().toLocaleString('pt-BR'),
-                dataHoraRetorno: null,
-                status: 'em transito',
+                dataEntrada: new Date(),
+                dataSaida: null,
+                status: 'patio',
                 porteiroId: currentUser.id,
-                porteiroNome: currentUser.nome
+                porteiroNome: currentUser.nome,
+                porteiroCor: currentUser.cor
             };
 
             motoristasES.push(entrada);
-            addAuditLog('CRIAR_ENTRADA_MOTORISTA', `${currentUser.nome} registrou saída do motorista: ${motorista.nome}`);
+            addAuditLog('CRIAR_ENTRADA_MOTORISTA', `${currentUser.nome} registrou entrada do motorista: ${motorista.nome}`);
             salvarDados();
             resetFormMotoristaES();
             renderMotoristasES();
-            alert('✅ Saída de motorista registrada com sucesso!\n\nMotorista: ' + motorista.nome + '\nVeículo: ' + entrada.veiculo);
+            alert('✅ Entrada registrada com sucesso!\n\nMotorista: ' + motorista.nome + '\nPlaca: ' + entrada.placa);
         }
 
         function resetFormMotoristaES() {
             document.getElementById('motoristaESForm').reset();
         }
 
-        function registrarRetornoMotorista(id) {
+        function registrarSaidaMotorista(id) {
             // SECURITY: Block SUPERVISOR from modifying
             if (currentUser && currentUser.perfil === 'SUPERVISOR') {
                 alert('❌ SEM PERMISSÃO\n\nSupervisores não podem modificar dados.');
@@ -5071,13 +5065,13 @@
                 return;
             }
 
-            if (confirm('Registrar RETORNO do motorista: ' + entrada.motoristaNome + '?')) {
-                entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
-                entrada.status = 'retornado';
-                addAuditLog('RETORNO_MOTORISTA', `${currentUser.nome} registrou retorno do motorista: ${entrada.motoristaNome}`);
+            if (confirm('Registrar SAÍDA do motorista: ' + entrada.motorista + '?')) {
+                entrada.dataSaida = new Date();
+                entrada.status = 'saida';
+                addAuditLog('SAIDA_MOTORISTA', `${currentUser.nome} registrou saída do motorista: ${entrada.motorista}`);
                 salvarDados();
                 renderMotoristasES();
-                alert('✅ Retorno registrado com sucesso!');
+                alert('✅ Saída registrada com sucesso!');
             }
         }
 
@@ -5104,48 +5098,50 @@
 
             const isSupervisor = currentUser && currentUser.perfil === 'SUPERVISOR';
 
-            // Render motoristas em trânsito
-            const transitoContainer = document.getElementById('motoristasTransitoContainer');
-            const emTransito = motoristasES.filter(e => e.status === 'em transito');
+            // Render veículos em pátio
+            const patioContainer = document.getElementById('motoristasTransitoContainer');
+            const patio = motoristasES.filter(e => e.status === 'patio');
             
-            if (emTransito.length === 0) {
-                transitoContainer.innerHTML = `
+            if (patio.length === 0) {
+                patioContainer.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">🚗</div>
-                        <div class="empty-state-text">Nenhum motorista em trânsito</div>
+                        <div class="empty-state-text">Nenhum veículo em pátio</div>
                     </div>
                 `;
             } else {
-                transitoContainer.innerHTML = `
+                patioContainer.innerHTML = `
                     <table>
                         <thead>
                             <tr>
+                                <th>Transportadora</th>
+                                <th>Placa</th>
                                 <th>Motorista</th>
-                                <th>Veículo</th>
-                                <th>Destino</th>
-                                <th>Nota Fiscal</th>
-                                <th>Peso (kg)</th>
-                                <th>Volume</th>
-                                <th>Saída</th>
-                                <th>Observações</th>
+                                <th>Cliente</th>
+                                <th>Nota</th>
+                                <th>Entrada</th>
+                                <th>Porteiro</th>
                                 ${!isSupervisor ? '<th>Ação</th>' : ''}
                             </tr>
                         </thead>
                         <tbody>
-                            ${emTransito.map(e => `
+                            ${patio.map(e => `
                                 <tr>
-                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
-                                    <td>${escapeHtml(e.veiculo)}</td>
-                                    <td>${escapeHtml(e.destino || '-')}</td>
-                                    <td>${escapeHtml(e.notaFiscal || '-')}</td>
-                                    <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
-                                    <td>${escapeHtml(e.volume || '-')}</td>
-                                    <td>${e.dataHoraSaida}</td>
-                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
+                                    <td>${escapeHtml(e.cliente || '-')}</td>
+                                    <td>${escapeHtml(e.nota || '-')}</td>
+                                    <td>${formatDateTime(e.dataEntrada)}</td>
+                                    <td>
+                                        <div class="table-avatar" style="background: ${e.porteiroCor};">
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
+                                        </div>
+                                    </td>
                                     ${!isSupervisor ? `
                                         <td>
-                                            <button class="table-btn btn-exit" onclick="registrarRetornoMotorista(${e.id})">
-                                                ✅ RETORNO
+                                            <button class="table-btn btn-exit" onclick="registrarSaidaMotorista(${e.id})">
+                                                ✅ SAÍDA
                                             </button>
                                         </td>
                                     ` : ''}
@@ -5157,45 +5153,44 @@
             }
 
             // Render saídas finalizadas hoje
-            const retornosContainer = document.getElementById('motoristasRetornosContainer');
-            const hoje = new Date().toLocaleDateString('pt-BR');
-            const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
+            const saidasContainer = document.getElementById('motoristasRetornosContainer');
+            const finalizadas = motoristasES.filter(e => e.status === 'saida' && isToday(e.dataSaida));
             
-            if (retornosHoje.length === 0) {
-                retornosContainer.innerHTML = `
+            if (finalizadas.length === 0) {
+                saidasContainer.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">✅</div>
                         <div class="empty-state-text">Nenhuma saída finalizada hoje</div>
                     </div>
                 `;
             } else {
-                retornosContainer.innerHTML = `
+                saidasContainer.innerHTML = `
                     <table>
                         <thead>
                             <tr>
+                                <th>Transportadora</th>
+                                <th>Placa</th>
                                 <th>Motorista</th>
-                                <th>Veículo</th>
-                                <th>Destino</th>
-                                <th>Nota Fiscal</th>
-                                <th>Peso (kg)</th>
-                                <th>Volume</th>
+                                <th>Entrada</th>
                                 <th>Saída</th>
-                                <th>Retorno</th>
-                                <th>Observações</th>
+                                <th>Permanência</th>
+                                <th>Porteiro</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${retornosHoje.map(e => `
+                            ${finalizadas.map(e => `
                                 <tr>
-                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
-                                    <td>${escapeHtml(e.veiculo)}</td>
-                                    <td>${escapeHtml(e.destino || '-')}</td>
-                                    <td>${escapeHtml(e.notaFiscal || '-')}</td>
-                                    <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
-                                    <td>${escapeHtml(e.volume || '-')}</td>
-                                    <td>${e.dataHoraSaida}</td>
-                                    <td>${e.dataHoraRetorno}</td>
-                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
+                                    <td>${formatDateTime(e.dataEntrada)}</td>
+                                    <td>${formatDateTime(e.dataSaida)}</td>
+                                    <td><strong>${calcularPermanenciaMinutos(e.dataEntrada, e.dataSaida)} minutos</strong></td>
+                                    <td>
+                                        <div class="table-avatar" style="background: ${e.porteiroCor};">
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
+                                        </div>
+                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
