@@ -4896,7 +4896,182 @@
             return '(' + celular.substring(0, 2) + ') ' + celular.substring(2, 7) + '-' + celular.substring(7);
         }
 
-        // Handle Enter key on password field
+        // =========== MOTORISTAS E/S FUNCTIONS ===========
+        
+        function registrarEntradaMotorista(event) {
+            event.preventDefault();
+
+            // SECURITY: Block SUPERVISOR from creating
+            if (currentUser && currentUser.perfil === 'SUPERVISOR') {
+                alert('❌ SEM PERMISSÃO\n\nSupervisores não podem criar ou modificar dados.');
+                return;
+            }
+
+            const motoristaId = document.getElementById('motoristaESSelect').value;
+            const veiculo = document.getElementById('esVeiculo').value;
+            const destino = document.getElementById('esDestino').value;
+            const observacoes = document.getElementById('esObservacoes').value;
+
+            if (!motoristaId || !veiculo) {
+                alert('Preencha todos os campos obrigatórios!');
+                return;
+            }
+
+            const motorista = motoristas.find(m => m.id == motoristaId);
+            if (!motorista) {
+                alert('Motorista não encontrado!');
+                return;
+            }
+
+            // SECURITY: Sanitize all inputs
+            const entrada = {
+                id: Date.now(),
+                motoristaId: motoristaId,
+                motoristaNome: motorista.nome,
+                veiculo: converterMaiusculas(sanitizeInput(veiculo, 50)),
+                destino: converterMaiusculas(sanitizeInput(destino, 100)),
+                observacoes: converterMaiusculas(sanitizeInput(observacoes, 500)),
+                dataHoraSaida: new Date().toLocaleString('pt-BR'),
+                dataHoraRetorno: null,
+                status: 'em transito',
+                porteiroId: currentUser.id,
+                porteiroNome: currentUser.nome
+            };
+
+            motoristasES.push(entrada);
+            addAuditLog('CRIAR_ENTRADA_MOTORISTA', `${currentUser.nome} registrou saída do motorista: ${motorista.nome}`);
+            salvarDados();
+            resetFormMotoristaES();
+            renderMotoristasES();
+            alert('✅ Saída de motorista registrada com sucesso!\n\nMotorista: ' + motorista.nome + '\nVeículo: ' + entrada.veiculo);
+        }
+
+        function resetFormMotoristaES() {
+            document.getElementById('motoristaESForm').reset();
+        }
+
+        function registrarRetornoMotorista(id) {
+            // SECURITY: Block SUPERVISOR from modifying
+            if (currentUser && currentUser.perfil === 'SUPERVISOR') {
+                alert('❌ SEM PERMISSÃO\n\nSupervisores não podem modificar dados.');
+                return;
+            }
+
+            const entrada = motoristasES.find(e => e.id === id);
+            if (!entrada) {
+                alert('❌ Erro: Entrada não encontrada!');
+                return;
+            }
+
+            if (confirm('Registrar RETORNO do motorista: ' + entrada.motoristaNome + '?')) {
+                entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
+                entrada.status = 'retornado';
+                addAuditLog('RETORNO_MOTORISTA', `${currentUser.nome} registrou retorno do motorista: ${entrada.motoristaNome}`);
+                salvarDados();
+                renderMotoristasES();
+                alert('✅ Retorno registrado com sucesso!');
+            }
+        }
+
+        function renderMotoristasES() {
+            // Populate motorista select dropdown
+            const select = document.getElementById('motoristaESSelect');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            motoristas.forEach(m => {
+                select.innerHTML += `<option value="${m.id}">${escapeHtml(m.nome)}</option>`;
+            });
+
+            const isSupervisor = currentUser && currentUser.perfil === 'SUPERVISOR';
+
+            // Render motoristas em trânsito
+            const transitoContainer = document.getElementById('motoristasTransitoContainer');
+            const emTransito = motoristasES.filter(e => e.status === 'em transito');
+            
+            if (emTransito.length === 0) {
+                transitoContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🚗</div>
+                        <div class="empty-state-text">Nenhum motorista em trânsito</div>
+                    </div>
+                `;
+            } else {
+                transitoContainer.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Motorista</th>
+                                <th>Veículo</th>
+                                <th>Destino</th>
+                                <th>Saída</th>
+                                <th>Observações</th>
+                                ${!isSupervisor ? '<th>Ação</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${emTransito.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
+                                    <td>${escapeHtml(e.veiculo)}</td>
+                                    <td>${escapeHtml(e.destino || '-')}</td>
+                                    <td>${e.dataHoraSaida}</td>
+                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                    ${!isSupervisor ? `
+                                        <td>
+                                            <button class="table-btn btn-exit" onclick="registrarRetornoMotorista(${e.id})">
+                                                ✅ RETORNO
+                                            </button>
+                                        </td>
+                                    ` : ''}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Render retornos finalizados hoje
+            const retornosContainer = document.getElementById('motoristasRetornosContainer');
+            const hoje = new Date().toLocaleDateString('pt-BR');
+            const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
+            
+            if (retornosHoje.length === 0) {
+                retornosContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
+                    </div>
+                `;
+            } else {
+                retornosContainer.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Motorista</th>
+                                <th>Veículo</th>
+                                <th>Destino</th>
+                                <th>Saída</th>
+                                <th>Retorno</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${retornosHoje.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
+                                    <td>${escapeHtml(e.veiculo)}</td>
+                                    <td>${escapeHtml(e.destino || '-')}</td>
+                                    <td>${e.dataHoraSaida}</td>
+                                    <td>${e.dataHoraRetorno}</td>
+                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        }
+
+        // Handle Enter key on password field and initialize system
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('passwordInput');
             if (passwordInput) {
@@ -4906,181 +5081,6 @@
                     }
                 });
             }
-
-                    // =========== MOTORISTAS E/S FUNCTIONS ===========
-
-                    function registrarEntradaMotorista(event) {
-                                    event.preventDefault();
-
-                                    // SECURITY: Block SUPERVISOR from creating
-                                    if (currentUser && currentUser.perfil === 'SUPERVISOR') {
-                                        alert('❌ SEM PERMISSÃO\n\nSupervisores não podem criar ou modificar dados.');
-                                        return;
-                                    }
-
-                                    const motoristaId = document.getElementById('motoristaESSelect').value;
-                                    const veiculo = document.getElementById('esVeiculo').value;
-                                    const destino = document.getElementById('esDestino').value;
-                                    const observacoes = document.getElementById('esObservacoes').value;
-
-                                    if (!motoristaId || !veiculo) {
-                                                        alert('Preencha todos os campos obrigatórios!');
-                                                        return;
-                                                    }
-
-                                    const motorista = motoristas.find(m => m.id == motoristaId);
-                                    if (!motorista) {
-                                                        alert('Motorista não encontrado!');
-                                                        return;
-                                                    }
-
-                                    // SECURITY: Sanitize all inputs
-                                    const entrada = {
-                                                        id: Date.now(),
-                                                        motoristaId: motoristaId,
-                                                        motoristaNome: motorista.nome,
-                                                        veiculo: converterMaiusculas(sanitizeInput(veiculo, 50)),
-                                                        destino: converterMaiusculas(sanitizeInput(destino, 100)),
-                                                        observacoes: converterMaiusculas(sanitizeInput(observacoes, 500)),
-                                                        dataHoraSaida: new Date().toLocaleString('pt-BR'),
-                                                        dataHoraRetorno: null,
-                                                        status: 'em transito',
-                                                        porteiroId: currentUser.id,
-                                                        porteiroNome: currentUser.nome
-                                                                        };
-
-                                    motoristasES.push(entrada);
-                                    addAuditLog('CRIAR_ENTRADA_MOTORISTA', `${currentUser.nome} registrou saída do motorista: ${motorista.nome}`);
-                                    salvarDados();
-                                    resetFormMotoristaES();
-                                    renderMotoristasES();
-                                    alert('✅ Saída de motorista registrada com sucesso!\n\nMotorista: ' + motorista.nome + '\nVeículo: ' + entrada.veiculo);
-                                }
-
-                    function resetFormMotoristaES() {
-                                    document.getElementById('motoristaESForm').reset();
-                                }
-
-                    function registrarRetornoMotorista(id) {
-                                    // SECURITY: Block SUPERVISOR from modifying
-                                    if (currentUser && currentUser.perfil === 'SUPERVISOR') {
-                                        alert('❌ SEM PERMISSÃO\n\nSupervisores não podem modificar dados.');
-                                        return;
-                                    }
-
-                                    const entrada = motoristasES.find(e => e.id === id);
-                                    if (!entrada) {
-                                        alert('❌ Erro: Entrada não encontrada!');
-                                        return;
-                                    }
-
-                                    if (confirm('Registrar RETORNO do motorista: ' + entrada.motoristaNome + '?')) {
-                                        entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
-                                        entrada.status = 'retornado';
-                                        addAuditLog('RETORNO_MOTORISTA', `${currentUser.nome} registrou retorno do motorista: ${entrada.motoristaNome}`);
-                                        salvarDados();
-                                        renderMotoristasES();
-                                        alert('✅ Retorno registrado com sucesso!');
-                                    }
-                                }
-
-                    function renderMotoristasES() {
-                                    // Populate motorista select dropdown
-                                    const select = document.getElementById('motoristaESSelect');
-                                    select.innerHTML = '<option value="">Selecione...</option>';
-                                    motoristas.forEach(m => {
-                                                        select.innerHTML += `<option value="${m.id}">${escapeHtml(m.nome)}</option>`;
-                                                    });
-
-                                    const isSupervisor = currentUser && currentUser.perfil === 'SUPERVISOR';
-
-                                    // Render motoristas em trânsito
-                                    const transitoContainer = document.getElementById('motoristasTransitoContainer');
-                                    const emTransito = motoristasES.filter(e => e.status === 'em transito');
-                                    
-                                    if (emTransito.length === 0) {
-                                        transitoContainer.innerHTML = `
-                                            <div class="empty-state">
-                                                <div class="empty-state-icon">🚗</div>
-                                                <div class="empty-state-text">Nenhum motorista em trânsito</div>
-                                            </div>
-                                        `;
-                                    } else {
-                                        transitoContainer.innerHTML = `
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th>Motorista</th>
-                                                        <th>Veículo</th>
-                                                        <th>Destino</th>
-                                                        <th>Saída</th>
-                                                        <th>Observações</th>
-                                                        ${!isSupervisor ? '<th>Ação</th>' : ''}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${emTransito.map(e => `
-                                                        <tr>
-                                                            <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
-                                                            <td>${escapeHtml(e.veiculo)}</td>
-                                                            <td>${escapeHtml(e.destino || '-')}</td>
-                                                            <td>${e.dataHoraSaida}</td>
-                                                            <td>${escapeHtml(e.observacoes || '-')}</td>
-                                                            ${!isSupervisor ? `
-                                                                <td>
-                                                                    <button class="table-btn btn-exit" onclick="registrarRetornoMotorista(${e.id})">
-                                                                        ✅ RETORNO
-                                                                    </button>
-                                                                </td>
-                                                            ` : ''}
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        `;
-                                    }
-
-                                    // Render retornos finalizados hoje
-                                    const retornosContainer = document.getElementById('motoristasRetornosContainer');
-                                    const hoje = new Date().toLocaleDateString('pt-BR');
-                                    const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
-                                    
-                                    if (retornosHoje.length === 0) {
-                                        retornosContainer.innerHTML = `
-                                            <div class="empty-state">
-                                                <div class="empty-state-icon">✅</div>
-                                                <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
-                                            </div>
-                                        `;
-                                    } else {
-                                        retornosContainer.innerHTML = `
-                                            <table>
-                                                <thead>
-                                                    <tr>
-                                                        <th>Motorista</th>
-                                                        <th>Veículo</th>
-                                                        <th>Destino</th>
-                                                        <th>Saída</th>
-                                                        <th>Retorno</th>
-                                                        <th>Observações</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${retornosHoje.map(e => `
-                                                        <tr>
-                                                            <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
-                                                            <td>${escapeHtml(e.veiculo)}</td>
-                                                            <td>${escapeHtml(e.destino || '-')}</td>
-                                                            <td>${e.dataHoraSaida}</td>
-                                                            <td>${e.dataHoraRetorno}</td>
-                                                            <td>${escapeHtml(e.observacoes || '-')}</td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        `;
-                                    }
-                                }
             
             // Initialize audit log
             addAuditLog('SISTEMA_INICIADO', 'Sistema iniciado com sucesso');
