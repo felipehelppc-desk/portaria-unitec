@@ -1448,11 +1448,11 @@
             </div>
 
             <div class="section">
-                <h3 class="section-title">✅ Retornos Finalizados Hoje</h3>
+                <h3 class="section-title">✅ Saídas Finalizadas Hoje</h3>
                 <div class="table-container" id="motoristasRetornosContainer">
                     <div class="empty-state">
                         <div class="empty-state-icon">✅</div>
-                        <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
+                        <div class="empty-state-text">Nenhuma saída finalizada hoje</div>
                     </div>
                 </div>
             </div>
@@ -1826,6 +1826,12 @@
                         <div class="report-icon">🚗</div>
                         <h3>Relatório de Motoristas</h3>
                         <p>Listagem completa de motoristas cadastrados</p>
+                    </div>
+
+                    <div class="report-card" onclick="showReport('motoristas-es')">
+                        <div class="report-icon">🚙</div>
+                        <h3>Relatório de Entradas/Saídas de Motoristas</h3>
+                        <p>Controle completo de veículos e movimentações dos motoristas</p>
                     </div>
 
                     <div class="report-card" onclick="showReport('agenda')">
@@ -3232,6 +3238,10 @@
                     title = '🚗 RELATÓRIO DE MOTORISTAS';
                     content = generateMotoristasReport();
                     break;
+                case 'motoristas-es':
+                    title = '🚙 RELATÓRIO DE ENTRADAS/SAÍDAS DE MOTORISTAS';
+                    content = generateMotoristasESReport();
+                    break;
                 case 'agenda':
                     title = '📇 RELATÓRIO DE AGENDA';
                     content = generateAgendaReport();
@@ -3537,6 +3547,83 @@
                                         <td style="${statusColor}">${formatDate(m.vencimentoCNH)}${statusCNH}</td>
                                         <td>${m.endereco || '-'}</td>
                                         <td>${m.cidade || '-'}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function generateMotoristasESReport() {
+            if (motoristasES.length === 0) {
+                return `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🚙</div>
+                        <div class="empty-state-text">Nenhuma movimentação de motorista registrada ainda</div>
+                    </div>
+                `;
+            }
+
+            const emTransito = motoristasES.filter(e => e.status === 'em transito').length;
+            const retornados = motoristasES.filter(e => e.status === 'retornado').length;
+            const hoje = new Date().toLocaleDateString('pt-BR');
+            const retornadosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje)).length;
+
+            return `
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div style="background: linear-gradient(135deg, #1E3A8A, #1E40AF); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${motoristasES.length}</div>
+                        <div style="font-size: 14px;">Total de Movimentações</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${emTransito}</div>
+                        <div style="font-size: 14px;">Em Trânsito</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #10B981, #059669); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${retornados}</div>
+                        <div style="font-size: 14px;">Total Retornados</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #059669, #047857); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+                        <div style="font-size: 32px; font-weight: bold; margin-bottom: 5px;">${retornadosHoje}</div>
+                        <div style="font-size: 14px;">Retornados Hoje</div>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Motorista</th>
+                                <th>Veículo</th>
+                                <th>Destino</th>
+                                <th>Nota Fiscal</th>
+                                <th>Peso (kg)</th>
+                                <th>Volume</th>
+                                <th>Saída</th>
+                                <th>Retorno</th>
+                                <th>Porteiro</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${motoristasES.map(e => {
+                                const statusBadge = e.status === 'em transito' 
+                                    ? '<span style="background: #3B82F6; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">🚗 EM TRÂNSITO</span>'
+                                    : '<span style="background: #10B981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold;">✅ RETORNADO</span>';
+                                
+                                return `
+                                    <tr>
+                                        <td>${statusBadge}</td>
+                                        <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
+                                        <td>${escapeHtml(e.veiculo)}</td>
+                                        <td>${escapeHtml(e.destino || '-')}</td>
+                                        <td>${escapeHtml(e.notaFiscal || '-')}</td>
+                                        <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
+                                        <td>${escapeHtml(e.volume || '-')}</td>
+                                        <td>${e.dataHoraSaida}</td>
+                                        <td>${e.dataHoraRetorno || '-'}</td>
+                                        <td>${e.porteiroNome}</td>
                                     </tr>
                                 `;
                             }).join('')}
@@ -5069,7 +5156,7 @@
                 `;
             }
 
-            // Render retornos finalizados hoje
+            // Render saídas finalizadas hoje
             const retornosContainer = document.getElementById('motoristasRetornosContainer');
             const hoje = new Date().toLocaleDateString('pt-BR');
             const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
@@ -5078,7 +5165,7 @@
                 retornosContainer.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">✅</div>
-                        <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
+                        <div class="empty-state-text">Nenhuma saída finalizada hoje</div>
                     </div>
                 `;
             } else {
