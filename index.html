@@ -1892,6 +1892,17 @@
         function salvarDados() {
             console.log('='.repeat(70));
             console.log('💾 DADOS SALVOS NA MEMÓRIA!');
+                
+    // SALVAR NO LOCALSTORAGE
+    try {
+        localStorage.setItem('portaria_motoristas', JSON.stringify(motoristas));
+        localStorage.setItem('portaria_visitantes', JSON.stringify(visitantes));
+        localStorage.setItem('portaria_entradas', JSON.stringify(entradas));
+        localStorage.setItem('portaria_agenda', JSON.stringify(agenda));
+        localStorage.setItem('portaria_usuarios', JSON.stringify(usuarios));
+    } catch (e) {
+        console.error('Erro ao salvar no localStorage:', e);
+    }
             console.log('📊 Visitantes: ' + visitantes.length);
             console.log('📊 Entradas: ' + entradas.length);
             console.log('📊 Motoristas: ' + motoristas.length);
@@ -1915,6 +1926,32 @@
 
         function carregarDados() {
             console.log('🚀 SISTEMA TESTE - INICIALIZANDO...');
+                
+    // CARREGAR DO LOCALSTORAGE
+    try {
+        const savedMotoristas = localStorage.getItem('portaria_motoristas');
+        const savedVisitantes = localStorage.getItem('portaria_visitantes');
+        const savedEntradas = localStorage.getItem('portaria_entradas');
+        const savedAgenda = localStorage.getItem('portaria_agenda');
+        const savedUsuarios = localStorage.getItem('portaria_usuarios');
+        
+        if (savedMotoristas) motoristas = JSON.parse(savedMotoristas);
+        if (savedVisitantes) visitantes = JSON.parse(savedVisitantes);
+        if (savedEntradas) entradas = JSON.parse(savedEntradas);
+        if (savedAgenda) agenda = JSON.parse(savedAgenda);
+        if (savedUsuarios && JSON.parse(savedUsuarios).length > 0) {
+            usuarios = JSON.parse(savedUsuarios);
+        }
+        
+        console.log('✅ Dados carregados do LocalStorage');
+        console.log(' • Motoristas:', motoristas.length);
+        console.log(' • Visitantes:', visitantes.length);
+        console.log(' • Entradas:', entradas.length);
+        console.log(' • Agenda:', agenda.length);
+        console.log(' • Usuários:', usuarios.length);
+    } catch (e) {
+        console.error('Erro ao carregar do localStorage:', e);
+    }
             console.log('✅ Array de usuários criado e compartilhado');
             console.log('✅ Admin pré-cadastrado');
             console.log('✅ 4 PORTEIROS PRÉ-CADASTRADOS:');
