@@ -1887,6 +1887,16 @@
         let selectedAccessType = null; // 'porteiro' or 'admin'
         let sessionTimeout = null;
         let loginAttempts = {};
+        
+        // Load login attempts from localStorage on startup
+        try {
+            const savedAttempts = localStorage.getItem('portaria_login_attempts');
+            if (savedAttempts) {
+                loginAttempts = JSON.parse(savedAttempts);
+            }
+        } catch (e) {
+            console.error('Error loading login attempts:', e);
+        }
 
         // ============================================
         // SECURITY FUNCTIONS
@@ -1915,7 +1925,12 @@
          */
         function sanitizeInput(input, maxLength = 255) {
             if (typeof input !== 'string') return '';
-            return input.trim().substring(0, maxLength);
+            // Remove null bytes, control characters, and limit length
+            return input
+                .replace(/\0/g, '') // Remove null bytes
+                .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+                .trim()
+                .substring(0, maxLength);
         }
 
         /**
@@ -1957,6 +1972,13 @@
             }
             loginAttempts[email].count++;
             loginAttempts[email].lastAttempt = Date.now();
+            
+            // SECURITY: Persist to localStorage to prevent refresh bypass
+            try {
+                localStorage.setItem('portaria_login_attempts', JSON.stringify(loginAttempts));
+            } catch (e) {
+                console.error('Error saving login attempts:', e);
+            }
         }
 
         /**
@@ -1966,6 +1988,13 @@
         function resetLoginAttempts(email) {
             if (loginAttempts[email]) {
                 loginAttempts[email].count = 0;
+            }
+            
+            // SECURITY: Update localStorage
+            try {
+                localStorage.setItem('portaria_login_attempts', JSON.stringify(loginAttempts));
+            } catch (e) {
+                console.error('Error saving login attempts:', e);
             }
         }
 
