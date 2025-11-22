@@ -2810,15 +2810,16 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const entrada = {
                 id: Date.now(),
-                transportadora: converterMaiusculas(document.getElementById('entradaTransportadora').value),
-                placa: capitalizarPlaca(document.getElementById('entradaPlaca').value),
-                motorista: converterMaiusculas(document.getElementById('entradaMotorista').value),
-                cliente: converterMaiusculas(document.getElementById('entradaCliente').value),
-                nota: converterMaiusculas(document.getElementById('entradaNota').value),
+                transportadora: converterMaiusculas(sanitizeInput(document.getElementById('entradaTransportadora').value, 100)),
+                placa: capitalizarPlaca(sanitizeInput(document.getElementById('entradaPlaca').value, 20)),
+                motorista: converterMaiusculas(sanitizeInput(document.getElementById('entradaMotorista').value, 100)),
+                cliente: converterMaiusculas(sanitizeInput(document.getElementById('entradaCliente').value, 100)),
+                nota: converterMaiusculas(sanitizeInput(document.getElementById('entradaNota').value, 50)),
                 peso: document.getElementById('entradaPeso').value,
-                volume: converterMaiusculas(document.getElementById('entradaVolume').value),
+                volume: converterMaiusculas(sanitizeInput(document.getElementById('entradaVolume').value, 50)),
                 dataEntrada: new Date(),
                 dataSaida: null,
                 status: 'patio',
@@ -2908,15 +2909,15 @@
                         <tbody>
                             ${patio.map(e => `
                                 <tr>
-                                    <td><strong>${e.transportadora}</strong></td>
-                                    <td>${e.placa}</td>
-                                    <td>${e.motorista}</td>
-                                    <td>${e.cliente || '-'}</td>
-                                    <td>${e.nota || '-'}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
+                                    <td>${escapeHtml(e.cliente || '-')}</td>
+                                    <td>${escapeHtml(e.nota || '-')}</td>
                                     <td>${formatDateTime(e.dataEntrada)}</td>
                                     <td>
                                         <div class="table-avatar" style="background: ${e.porteiroCor};">
-                                            ${getInitials(e.porteiroNome)}
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
                                         </div>
                                     </td>
                                     ${!isSupervisor ? `
@@ -2959,15 +2960,15 @@
                         <tbody>
                             ${finalizadas.map(e => `
                                 <tr>
-                                    <td><strong>${e.transportadora}</strong></td>
-                                    <td>${e.placa}</td>
-                                    <td>${e.motorista}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
                                     <td>${formatDateTime(e.dataEntrada)}</td>
                                     <td>${formatDateTime(e.dataSaida)}</td>
                                     <td><strong>${calcularPermanenciaMinutos(e.dataEntrada, e.dataSaida)} minutos</strong></td>
                                     <td>
                                         <div class="table-avatar" style="background: ${e.porteiroCor};">
-                                            ${getInitials(e.porteiroNome)}
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
                                         </div>
                                     </td>
                                 </tr>
@@ -3580,16 +3581,17 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const motorista = {
                 id: editingMotoristaId || Date.now(),
-                nome: converterMaiusculas(document.getElementById('motoristaNome').value),
-                cpf: converterMaiusculas(document.getElementById('motoristaCPF').value),
-                telefone: converterMaiusculas(document.getElementById('motoristaTelefone').value),
-                email: converterMaiusculas(document.getElementById('motoristaEmail').value),
-                cnh: converterMaiusculas(document.getElementById('motoristaCNH').value),
+                nome: converterMaiusculas(sanitizeInput(document.getElementById('motoristaNome').value, 100)),
+                cpf: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCPF').value, 20)),
+                telefone: converterMaiusculas(sanitizeInput(document.getElementById('motoristaTelefone').value, 20)),
+                email: converterMaiusculas(sanitizeInput(document.getElementById('motoristaEmail').value, 100)),
+                cnh: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCNH').value, 20)),
                 vencimentoCNH: document.getElementById('motoristaVencimentoCNH').value,
-                endereco: converterMaiusculas(document.getElementById('motoristaEndereco').value),
-                cidade: converterMaiusculas(document.getElementById('motoristaCidade').value),
+                endereco: converterMaiusculas(sanitizeInput(document.getElementById('motoristaEndereco').value, 200)),
+                cidade: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCidade').value, 100)),
                 dataCadastro: editingMotoristaId ? motoristas.find(m => m.id === editingMotoristaId).dataCadastro : new Date(),
                 porteiroId: currentUser.id,
                 porteiroNome: currentUser.nome
@@ -3712,13 +3714,13 @@
                                 
                                 return `
                                     <tr>
-                                        <td><strong>${m.nome}</strong></td>
-                                        <td>${m.cpf}</td>
-                                        <td>${m.telefone}</td>
-                                        <td>${m.email || '-'}</td>
-                                        <td>${m.cnh}</td>
+                                        <td><strong>${escapeHtml(m.nome)}</strong></td>
+                                        <td>${escapeHtml(m.cpf)}</td>
+                                        <td>${escapeHtml(m.telefone)}</td>
+                                        <td>${escapeHtml(m.email || '-')}</td>
+                                        <td>${escapeHtml(m.cnh)}</td>
                                         <td style="${vencimentoClass}">${formatDate(m.vencimentoCNH)}${diasRestantes < 30 && diasRestantes >= 0 ? ' ⚠️' : ''}${diasRestantes < 0 ? ' ❌ VENCIDA' : ''}</td>
-                                        <td>${m.cidade || '-'}</td>
+                                        <td>${escapeHtml(m.cidade || '-')}</td>
                                         <td>
                                             <button class="table-btn" style="background: #C41E1E; color: white; margin-right: 5px;" onclick="editarMotorista(${m.id})">
                                                 ✏️ EDITAR
