@@ -1885,6 +1885,114 @@
         let editingAgendaId = null; // NEW: For editing contacts
         let currentTheme = 'azul';
         let selectedAccessType = null; // 'porteiro' or 'admin'
+        let sessionTimeout = null;
+        let loginAttempts = {};
+
+        // ============================================
+        // SECURITY FUNCTIONS
+        // ============================================
+        
+        /**
+         * Escapes HTML to prevent XSS attacks
+         * @param {string} unsafe - Untrusted user input
+         * @returns {string} - Safe HTML-escaped string
+         */
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        /**
+         * Validates and sanitizes text input
+         * @param {string} input - User input
+         * @param {number} maxLength - Maximum allowed length
+         * @returns {string} - Sanitized input
+         */
+        function sanitizeInput(input, maxLength = 255) {
+            if (typeof input !== 'string') return '';
+            return input.trim().substring(0, maxLength);
+        }
+
+        /**
+         * Checks if login attempts are within allowed limits
+         * @param {string} email - User email
+         * @returns {boolean} - True if login is allowed
+         */
+        function checkLoginAttempts(email) {
+            if (!loginAttempts[email]) {
+                loginAttempts[email] = {count: 0, lastAttempt: Date.now()};
+            }
+            
+            const attempt = loginAttempts[email];
+            const now = Date.now();
+            const lockoutTime = 15 * 60 * 1000; // 15 minutes
+            
+            // Reset counter if last attempt was more than 15 minutes ago
+            if (now - attempt.lastAttempt > lockoutTime) {
+                attempt.count = 0;
+            }
+            
+            // Check if account is locked
+            if (attempt.count >= 5 && now - attempt.lastAttempt < lockoutTime) {
+                const remainingTime = Math.ceil((lockoutTime - (now - attempt.lastAttempt)) / 60000);
+                alert(`❌ Conta bloqueada temporariamente.\n\nMuitas tentativas de login falhadas.\nTente novamente em ${remainingTime} minutos.`);
+                return false;
+            }
+            
+            return true;
+        }
+
+        /**
+         * Records a failed login attempt
+         * @param {string} email - User email
+         */
+        function recordFailedLogin(email) {
+            if (!loginAttempts[email]) {
+                loginAttempts[email] = {count: 0, lastAttempt: Date.now()};
+            }
+            loginAttempts[email].count++;
+            loginAttempts[email].lastAttempt = Date.now();
+        }
+
+        /**
+         * Resets login attempts on successful login
+         * @param {string} email - User email
+         */
+        function resetLoginAttempts(email) {
+            if (loginAttempts[email]) {
+                loginAttempts[email].count = 0;
+            }
+        }
+
+        /**
+         * Starts session timeout (30 minutes of inactivity)
+         */
+        function startSessionTimeout() {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = setTimeout(() => {
+                alert('⚠️ Sessão expirada por inatividade.\n\nVocê será desconectado.');
+                logout();
+            }, 30 * 60 * 1000); // 30 minutes
+        }
+
+        /**
+         * Resets session timeout on user activity
+         */
+        function resetSessionTimeout() {
+            if (currentUser) {
+                startSessionTimeout();
+            }
+        }
+
+        // Reset session timeout on user activity
+        document.addEventListener('click', resetSessionTimeout);
+        document.addEventListener('keypress', resetSessionTimeout);
+        document.addEventListener('scroll', resetSessionTimeout);
 
         // ============================================
         // SAVE DATA (IN-MEMORY ONLY)
@@ -1893,13 +2001,21 @@
             console.log('='.repeat(70));
             console.log('💾 DADOS SALVOS NA MEMÓRIA!');
                 
-    // SALVAR NO LOCALSTORAGE
+    // SALVAR NO LOCALSTORAGE (sem senhas por segurança)
     try {
         localStorage.setItem('portaria_motoristas', JSON.stringify(motoristas));
         localStorage.setItem('portaria_visitantes', JSON.stringify(visitantes));
         localStorage.setItem('portaria_entradas', JSON.stringify(entradas));
         localStorage.setItem('portaria_agenda', JSON.stringify(agenda));
-        localStorage.setItem('portaria_usuarios', JSON.stringify(usuarios));
+        
+        // SECURITY FIX: Remove passwords before saving to localStorage
+        const usuariosSemSenha = usuarios.map(u => {
+            const {senha, ...resto} = u;
+            return resto;
+        });
+        localStorage.setItem('portaria_usuarios', JSON.stringify(usuariosSemSenha));
+        
+        console.log('🔒 SEGURANÇA: Senhas não são salvas no localStorage');
     } catch (e) {
         console.error('Erro ao salvar no localStorage:', e);
     }
@@ -2154,10 +2270,10 @@
             const email = document.getElementById('emailInput').value.trim().toLowerCase();
             const password = document.getElementById('passwordInput').value;
             
-            console.log('');
-            console.log('🔐 TENTATIVA DE LOGIN');
-            console.log('   Email:', email);
-            console.log('   Senha:', password ? '***' : '(vazia)');
+            // SECURITY: Check login attempts limit
+            if (!checkLoginAttempts(email)) {
+                return;
+            }
             
             if (!email) {
                 showError('Por favor, digite o email');
@@ -2172,26 +2288,27 @@
             // Find user (allow both admin and porteiro)
             const user = usuarios.find(u => u.email.toLowerCase() === email);
             
-            console.log('   Usuário encontrado:', user ? user.nome : 'NÃO ENCONTRADO');
-            
             if (!user) {
-                showError('Email não encontrado');
-                console.log('❌ LOGIN FALHOU: Email não existe');
+                showError('Email ou senha incorretos');
+                recordFailedLogin(email);
                 return;
             }
             
-            console.log('   Senha correta?', user.senha === password ? 'SIM' : 'NÃO');
-            console.log('   Senha esperada:', user.senha);
-            console.log('   Senha digitada:', password);
-            
+            // SECURITY NOTE: In production, this should use bcrypt or similar
+            // For now, we're comparing plain text passwords (NOT RECOMMENDED)
             if (user.senha !== password) {
-                showError('Senha incorreta');
-                console.log('❌ LOGIN FALHOU: Senha incorreta');
+                showError('Email ou senha incorretos');
+                recordFailedLogin(email);
                 return;
             }
 
-            console.log('✅ LOGIN APROVADO!');
-            console.log('   Nome:', user.nome);
+            // SECURITY: Reset failed login attempts on successful login
+            resetLoginAttempts(email);
+            
+            // SECURITY: Start session timeout
+            startSessionTimeout();
+            
+            console.log('✅ LOGIN APROVADO:', user.nome);
             console.log('   Perfil:', user.perfil);
             console.log('   Tipo:', user.tipo);
             console.log('');
@@ -2227,6 +2344,11 @@
                 if (currentUser) {
                     addAuditLog('LOGOUT', `${currentUser.nome} saiu do sistema`);
                 }
+                
+                // SECURITY: Clear session timeout
+                clearTimeout(sessionTimeout);
+                sessionTimeout = null;
+                
                 currentUser = null;
                 selectedAccessType = null;
                 selectedPorteiro = null;
@@ -2512,13 +2634,14 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const visitante = {
                 id: Date.now(),
-                nome: converterMaiusculas(document.getElementById('visitanteNome').value),
-                documento: converterMaiusculas(document.getElementById('visitanteDocumento').value),
-                empresa: converterMaiusculas(document.getElementById('visitanteEmpresa').value),
-                visitado: converterMaiusculas(document.getElementById('visitanteVisitado').value),
-                observacoes: converterMaiusculas(document.getElementById('visitanteObs').value),
+                nome: converterMaiusculas(sanitizeInput(document.getElementById('visitanteNome').value, 100)),
+                documento: converterMaiusculas(sanitizeInput(document.getElementById('visitanteDocumento').value, 50)),
+                empresa: converterMaiusculas(sanitizeInput(document.getElementById('visitanteEmpresa').value, 100)),
+                visitado: converterMaiusculas(sanitizeInput(document.getElementById('visitanteVisitado').value, 100)),
+                observacoes: converterMaiusculas(sanitizeInput(document.getElementById('visitanteObs').value, 500)),
                 dataEntrada: new Date(),
                 dataSaida: null,
                 status: 'ativo',
@@ -2608,14 +2731,14 @@
                         <tbody>
                             ${ativos.map(v => `
                                 <tr>
-                                    <td><strong>${v.nome}</strong></td>
-                                    <td>${v.documento}</td>
-                                    <td>${v.empresa || '-'}</td>
-                                    <td>${v.visitado}</td>
+                                    <td><strong>${escapeHtml(v.nome)}</strong></td>
+                                    <td>${escapeHtml(v.documento)}</td>
+                                    <td>${escapeHtml(v.empresa || '-')}</td>
+                                    <td>${escapeHtml(v.visitado)}</td>
                                     <td>${formatDateTime(v.dataEntrada)}</td>
                                     <td>
                                         <div class="table-avatar" style="background: ${v.porteiroCor};">
-                                            ${getInitials(v.porteiroNome)}
+                                            ${escapeHtml(getInitials(v.porteiroNome))}
                                         </div>
                                     </td>
                                     ${!isSupervisor ? `
@@ -2658,15 +2781,15 @@
                         <tbody>
                             ${finalizados.map(v => `
                                 <tr>
-                                    <td><strong>${v.nome}</strong></td>
-                                    <td>${v.documento}</td>
-                                    <td>${v.empresa || '-'}</td>
+                                    <td><strong>${escapeHtml(v.nome)}</strong></td>
+                                    <td>${escapeHtml(v.documento)}</td>
+                                    <td>${escapeHtml(v.empresa || '-')}</td>
                                     <td>${formatDateTime(v.dataEntrada)}</td>
                                     <td>${formatDateTime(v.dataSaida)}</td>
                                     <td><strong>${calcularPermanenciaMinutos(v.dataEntrada, v.dataSaida)} minutos</strong></td>
                                     <td>
                                         <div class="table-avatar" style="background: ${v.porteiroCor};">
-                                            ${getInitials(v.porteiroNome)}
+                                            ${escapeHtml(getInitials(v.porteiroNome))}
                                         </div>
                                     </td>
                                 </tr>
