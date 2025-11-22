@@ -1341,8 +1341,8 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-field">
-                                    <label for="motoristaEmail">Email</label>
-                                    <input type="email" id="motoristaEmail">
+                                    <label for="motoristaPlaca">Placa do Veículo *</label>
+                                    <input type="text" id="motoristaPlaca" placeholder="ABC-1234" required>
                                 </div>
                                 <div class="form-field">
                                     <label for="motoristaCNH">CNH *</label>
@@ -3491,7 +3491,7 @@
                                 <th>Nome</th>
                                 <th>CPF</th>
                                 <th>Telefone</th>
-                                <th>Email</th>
+                                <th>Placa do Veículo</th>
                                 <th>CNH</th>
                                 <th>Vencimento CNH</th>
                                 <th>Endereço</th>
@@ -3518,7 +3518,7 @@
                                         <td><strong>${m.nome}</strong></td>
                                         <td>${m.cpf}</td>
                                         <td>${m.telefone}</td>
-                                        <td>${m.email || '-'}</td>
+                                        <td><strong>${m.placa || '-'}</strong></td>
                                         <td>${m.cnh}</td>
                                         <td style="${statusColor}">${formatDate(m.vencimentoCNH)}${statusCNH}</td>
                                         <td>${m.endereco || '-'}</td>
@@ -3647,7 +3647,7 @@
                 nome: converterMaiusculas(sanitizeInput(document.getElementById('motoristaNome').value, 100)),
                 cpf: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCPF').value, 20)),
                 telefone: converterMaiusculas(sanitizeInput(document.getElementById('motoristaTelefone').value, 20)),
-                email: converterMaiusculas(sanitizeInput(document.getElementById('motoristaEmail').value, 100)),
+                placa: converterMaiusculas(sanitizeInput(document.getElementById('motoristaPlaca').value, 20)),
                 cnh: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCNH').value, 20)),
                 vencimentoCNH: document.getElementById('motoristaVencimentoCNH').value,
                 endereco: converterMaiusculas(sanitizeInput(document.getElementById('motoristaEndereco').value, 200)),
@@ -3701,7 +3701,7 @@
             document.getElementById('motoristaNome').value = motorista.nome;
             document.getElementById('motoristaCPF').value = motorista.cpf;
             document.getElementById('motoristaTelefone').value = motorista.telefone;
-            document.getElementById('motoristaEmail').value = motorista.email;
+            document.getElementById('motoristaPlaca').value = motorista.placa || '';
             document.getElementById('motoristaCNH').value = motorista.cnh;
             document.getElementById('motoristaVencimentoCNH').value = motorista.vencimentoCNH;
             document.getElementById('motoristaEndereco').value = motorista.endereco;
@@ -3758,7 +3758,7 @@
                                 <th>Nome</th>
                                 <th>CPF</th>
                                 <th>Telefone</th>
-                                <th>Email</th>
+                                <th>Placa do Veículo</th>
                                 <th>CNH</th>
                                 <th>Vencimento CNH</th>
                                 <th>Cidade</th>
@@ -3777,7 +3777,7 @@
                                         <td><strong>${escapeHtml(m.nome)}</strong></td>
                                         <td>${escapeHtml(m.cpf)}</td>
                                         <td>${escapeHtml(m.telefone)}</td>
-                                        <td>${escapeHtml(m.email || '-')}</td>
+                                        <td><strong>${escapeHtml(m.placa || '-')}</strong></td>
                                         <td>${escapeHtml(m.cnh)}</td>
                                         <td style="${vencimentoClass}">${formatDate(m.vencimentoCNH)}${diasRestantes < 30 && diasRestantes >= 0 ? ' ⚠️' : ''}${diasRestantes < 0 ? ' ❌ VENCIDA' : ''}</td>
                                         <td>${escapeHtml(m.cidade || '-')}</td>
@@ -3827,7 +3827,8 @@
             const motoristasResults = motoristas.filter(m => 
                 m.nome.toLowerCase().includes(searchTerm) ||
                 m.cpf.toLowerCase().includes(searchTerm) ||
-                m.cnh.toLowerCase().includes(searchTerm)
+                m.cnh.toLowerCase().includes(searchTerm) ||
+                (m.placa && m.placa.toLowerCase().includes(searchTerm))
             );
 
             if (visitantesResults.length === 0 && entradasResults.length === 0 && motoristasResults.length === 0) {
@@ -4980,6 +4981,19 @@
             motoristas.forEach(m => {
                 select.innerHTML += `<option value="${m.id}">${escapeHtml(m.nome)}</option>`;
             });
+
+            // Add event listener to auto-populate placa when motorista is selected
+            select.onchange = function() {
+                const motoristaId = this.value;
+                if (motoristaId) {
+                    const motorista = motoristas.find(m => m.id == motoristaId);
+                    if (motorista && motorista.placa) {
+                        document.getElementById('esVeiculo').value = motorista.placa;
+                    }
+                } else {
+                    document.getElementById('esVeiculo').value = '';
+                }
+            };
 
             const isSupervisor = currentUser && currentUser.perfil === 'SUPERVISOR';
 
