@@ -2088,7 +2088,29 @@
         if (savedAgenda) agenda = JSON.parse(savedAgenda);
         if (savedMotoristasES) motoristasES = JSON.parse(savedMotoristasES);
         if (savedUsuarios && JSON.parse(savedUsuarios).length > 0) {
-            usuarios = JSON.parse(savedUsuarios);
+            const usuariosCarregados = JSON.parse(savedUsuarios);
+            
+            // SECURITY FIX: Restore default passwords for pre-existing users
+            // Passwords are not saved to localStorage for security, so we need to restore them
+            const defaultPasswords = {
+                'admin@portaria.com': 'admin123',
+                'evilasio@portaria.com': '12345',
+                'joveni@portaria.com': '12345',
+                'luizfabiano@portaria.com': '12345',
+                'simone@portaria.com': '12345'
+            };
+            
+            usuarios = usuariosCarregados.map(u => {
+                // If this is a default user and password is missing, restore it
+                if (defaultPasswords[u.email] && !u.senha) {
+                    return { ...u, senha: defaultPasswords[u.email] };
+                }
+                // If password exists (shouldn't happen after our security fix, but just in case)
+                // or if it's a custom user, keep as is
+                return u;
+            });
+            
+            console.log('🔒 SEGURANÇA: Senhas padrão restauradas para usuários pré-existentes');
         }
         
         console.log('✅ Dados carregados do LocalStorage');
