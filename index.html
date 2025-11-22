@@ -1341,8 +1341,8 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-field">
-                                    <label for="motoristaEmail">Email</label>
-                                    <input type="email" id="motoristaEmail">
+                                    <label for="motoristaPlaca">Placa do Veículo *</label>
+                                    <input type="text" id="motoristaPlaca" placeholder="ABC-1234" required>
                                 </div>
                                 <div class="form-field">
                                     <label for="motoristaCNH">CNH *</label>
@@ -1408,6 +1408,20 @@
                         <div class="form-field">
                             <label for="esDestino">Destino</label>
                             <input type="text" id="esDestino">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label for="esNotaFiscal">Nota Fiscal</label>
+                            <input type="text" id="esNotaFiscal" placeholder="Ex: 12345">
+                        </div>
+                        <div class="form-field">
+                            <label for="esPeso">Peso (kg)</label>
+                            <input type="number" id="esPeso" step="0.01" min="0" placeholder="Ex: 1500.50">
+                        </div>
+                        <div class="form-field">
+                            <label for="esVolume">Volume</label>
+                            <input type="text" id="esVolume" placeholder="Ex: 10m³">
                         </div>
                     </div>
                     <div class="form-row">
@@ -1885,6 +1899,143 @@
         let editingAgendaId = null; // NEW: For editing contacts
         let currentTheme = 'azul';
         let selectedAccessType = null; // 'porteiro' or 'admin'
+        let sessionTimeout = null;
+        let loginAttempts = {};
+        
+        // Load login attempts from localStorage on startup
+        try {
+            const savedAttempts = localStorage.getItem('portaria_login_attempts');
+            if (savedAttempts) {
+                loginAttempts = JSON.parse(savedAttempts);
+            }
+        } catch (e) {
+            console.error('Error loading login attempts:', e);
+        }
+
+        // ============================================
+        // SECURITY FUNCTIONS
+        // ============================================
+        
+        /**
+         * Escapes HTML to prevent XSS attacks
+         * @param {string} unsafe - Untrusted user input
+         * @returns {string} - Safe HTML-escaped string
+         */
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        /**
+         * Validates and sanitizes text input
+         * @param {string} input - User input
+         * @param {number} maxLength - Maximum allowed length
+         * @returns {string} - Sanitized input
+         */
+        function sanitizeInput(input, maxLength = 255) {
+            if (typeof input !== 'string') return '';
+            // Remove null bytes, control characters, and limit length
+            return input
+                .replace(/\0/g, '') // Remove null bytes
+                .replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters
+                .trim()
+                .substring(0, maxLength);
+        }
+
+        /**
+         * Checks if login attempts are within allowed limits
+         * @param {string} email - User email
+         * @returns {boolean} - True if login is allowed
+         */
+        function checkLoginAttempts(email) {
+            if (!loginAttempts[email]) {
+                loginAttempts[email] = {count: 0, lastAttempt: Date.now()};
+            }
+            
+            const attempt = loginAttempts[email];
+            const now = Date.now();
+            const lockoutTime = 15 * 60 * 1000; // 15 minutes
+            
+            // Reset counter if last attempt was more than 15 minutes ago
+            if (now - attempt.lastAttempt > lockoutTime) {
+                attempt.count = 0;
+            }
+            
+            // Check if account is locked
+            if (attempt.count >= 5 && now - attempt.lastAttempt < lockoutTime) {
+                const remainingTime = Math.ceil((lockoutTime - (now - attempt.lastAttempt)) / 60000);
+                alert(`❌ Conta bloqueada temporariamente.\n\nMuitas tentativas de login falhadas.\nTente novamente em ${remainingTime} minutos.`);
+                return false;
+            }
+            
+            return true;
+        }
+
+        /**
+         * Records a failed login attempt
+         * @param {string} email - User email
+         */
+        function recordFailedLogin(email) {
+            if (!loginAttempts[email]) {
+                loginAttempts[email] = {count: 0, lastAttempt: Date.now()};
+            }
+            loginAttempts[email].count++;
+            loginAttempts[email].lastAttempt = Date.now();
+            
+            // SECURITY: Persist to localStorage to prevent refresh bypass
+            try {
+                localStorage.setItem('portaria_login_attempts', JSON.stringify(loginAttempts));
+            } catch (e) {
+                console.error('Error saving login attempts:', e);
+            }
+        }
+
+        /**
+         * Resets login attempts on successful login
+         * @param {string} email - User email
+         */
+        function resetLoginAttempts(email) {
+            if (loginAttempts[email]) {
+                loginAttempts[email].count = 0;
+            }
+            
+            // SECURITY: Update localStorage
+            try {
+                localStorage.setItem('portaria_login_attempts', JSON.stringify(loginAttempts));
+            } catch (e) {
+                console.error('Error saving login attempts:', e);
+            }
+        }
+
+        /**
+         * Starts session timeout (30 minutes of inactivity)
+         */
+        function startSessionTimeout() {
+            clearTimeout(sessionTimeout);
+            sessionTimeout = setTimeout(() => {
+                alert('⚠️ Sessão expirada por inatividade.\n\nVocê será desconectado.');
+                logout();
+            }, 30 * 60 * 1000); // 30 minutes
+        }
+
+        /**
+         * Resets session timeout on user activity
+         */
+        function resetSessionTimeout() {
+            if (currentUser) {
+                startSessionTimeout();
+            }
+        }
+
+        // Reset session timeout on user activity
+        document.addEventListener('click', resetSessionTimeout);
+        document.addEventListener('keypress', resetSessionTimeout);
+        document.addEventListener('scroll', resetSessionTimeout);
 
         // ============================================
         // SAVE DATA (IN-MEMORY ONLY)
@@ -1893,13 +2044,22 @@
             console.log('='.repeat(70));
             console.log('💾 DADOS SALVOS NA MEMÓRIA!');
                 
-    // SALVAR NO LOCALSTORAGE
+    // SALVAR NO LOCALSTORAGE (sem senhas por segurança)
     try {
         localStorage.setItem('portaria_motoristas', JSON.stringify(motoristas));
         localStorage.setItem('portaria_visitantes', JSON.stringify(visitantes));
         localStorage.setItem('portaria_entradas', JSON.stringify(entradas));
         localStorage.setItem('portaria_agenda', JSON.stringify(agenda));
-        localStorage.setItem('portaria_usuarios', JSON.stringify(usuarios));
+        localStorage.setItem('portaria_motoristasES', JSON.stringify(motoristasES));
+        
+        // SECURITY FIX: Remove passwords before saving to localStorage
+        const usuariosSemSenha = usuarios.map(u => {
+            const {senha, ...resto} = u;
+            return resto;
+        });
+        localStorage.setItem('portaria_usuarios', JSON.stringify(usuariosSemSenha));
+        
+        console.log('🔒 SEGURANÇA: Senhas não são salvas no localStorage');
     } catch (e) {
         console.error('Erro ao salvar no localStorage:', e);
     }
@@ -1933,14 +2093,38 @@
         const savedVisitantes = localStorage.getItem('portaria_visitantes');
         const savedEntradas = localStorage.getItem('portaria_entradas');
         const savedAgenda = localStorage.getItem('portaria_agenda');
+        const savedMotoristasES = localStorage.getItem('portaria_motoristasES');
         const savedUsuarios = localStorage.getItem('portaria_usuarios');
         
         if (savedMotoristas) motoristas = JSON.parse(savedMotoristas);
         if (savedVisitantes) visitantes = JSON.parse(savedVisitantes);
         if (savedEntradas) entradas = JSON.parse(savedEntradas);
         if (savedAgenda) agenda = JSON.parse(savedAgenda);
+        if (savedMotoristasES) motoristasES = JSON.parse(savedMotoristasES);
         if (savedUsuarios && JSON.parse(savedUsuarios).length > 0) {
-            usuarios = JSON.parse(savedUsuarios);
+            const usuariosCarregados = JSON.parse(savedUsuarios);
+            
+            // SECURITY FIX: Restore default passwords for pre-existing users
+            // Passwords are not saved to localStorage for security, so we need to restore them
+            const defaultPasswords = {
+                'admin@portaria.com': 'admin123',
+                'evilasio@portaria.com': '12345',
+                'joveni@portaria.com': '12345',
+                'luizfabiano@portaria.com': '12345',
+                'simone@portaria.com': '12345'
+            };
+            
+            usuarios = usuariosCarregados.map(u => {
+                // If this is a default user and password is missing, restore it
+                if (defaultPasswords[u.email] && !u.senha) {
+                    return { ...u, senha: defaultPasswords[u.email] };
+                }
+                // If password exists (shouldn't happen after our security fix, but just in case)
+                // or if it's a custom user, keep as is
+                return u;
+            });
+            
+            console.log('🔒 SEGURANÇA: Senhas padrão restauradas para usuários pré-existentes');
         }
         
         console.log('✅ Dados carregados do LocalStorage');
@@ -1948,6 +2132,7 @@
         console.log(' • Visitantes:', visitantes.length);
         console.log(' • Entradas:', entradas.length);
         console.log(' • Agenda:', agenda.length);
+        console.log(' • Motoristas E/S:', motoristasES.length);
         console.log(' • Usuários:', usuarios.length);
     } catch (e) {
         console.error('Erro ao carregar do localStorage:', e);
@@ -2154,10 +2339,10 @@
             const email = document.getElementById('emailInput').value.trim().toLowerCase();
             const password = document.getElementById('passwordInput').value;
             
-            console.log('');
-            console.log('🔐 TENTATIVA DE LOGIN');
-            console.log('   Email:', email);
-            console.log('   Senha:', password ? '***' : '(vazia)');
+            // SECURITY: Check login attempts limit
+            if (!checkLoginAttempts(email)) {
+                return;
+            }
             
             if (!email) {
                 showError('Por favor, digite o email');
@@ -2172,26 +2357,27 @@
             // Find user (allow both admin and porteiro)
             const user = usuarios.find(u => u.email.toLowerCase() === email);
             
-            console.log('   Usuário encontrado:', user ? user.nome : 'NÃO ENCONTRADO');
-            
             if (!user) {
-                showError('Email não encontrado');
-                console.log('❌ LOGIN FALHOU: Email não existe');
+                showError('Email ou senha incorretos');
+                recordFailedLogin(email);
                 return;
             }
             
-            console.log('   Senha correta?', user.senha === password ? 'SIM' : 'NÃO');
-            console.log('   Senha esperada:', user.senha);
-            console.log('   Senha digitada:', password);
-            
+            // SECURITY NOTE: In production, this should use bcrypt or similar
+            // For now, we're comparing plain text passwords (NOT RECOMMENDED)
             if (user.senha !== password) {
-                showError('Senha incorreta');
-                console.log('❌ LOGIN FALHOU: Senha incorreta');
+                showError('Email ou senha incorretos');
+                recordFailedLogin(email);
                 return;
             }
 
-            console.log('✅ LOGIN APROVADO!');
-            console.log('   Nome:', user.nome);
+            // SECURITY: Reset failed login attempts on successful login
+            resetLoginAttempts(email);
+            
+            // SECURITY: Start session timeout
+            startSessionTimeout();
+            
+            console.log('✅ LOGIN APROVADO:', user.nome);
             console.log('   Perfil:', user.perfil);
             console.log('   Tipo:', user.tipo);
             console.log('');
@@ -2227,6 +2413,11 @@
                 if (currentUser) {
                     addAuditLog('LOGOUT', `${currentUser.nome} saiu do sistema`);
                 }
+                
+                // SECURITY: Clear session timeout
+                clearTimeout(sessionTimeout);
+                sessionTimeout = null;
+                
                 currentUser = null;
                 selectedAccessType = null;
                 selectedPorteiro = null;
@@ -2465,6 +2656,11 @@
                 }
                         } else if (page === 'motoristas-es') {
                             renderMotoristasES();
+                            // Hide form section for SUPERVISOR
+                            const formSection = document.getElementById('motoristaESFormSection');
+                            if (formSection) {
+                                formSection.style.display = currentUser.perfil === 'SUPERVISOR' ? 'none' : 'block';
+                            }
             } else if (page === 'agenda') {
                 renderAgenda();
             } else if (page === 'busca') {
@@ -2512,13 +2708,14 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const visitante = {
                 id: Date.now(),
-                nome: converterMaiusculas(document.getElementById('visitanteNome').value),
-                documento: converterMaiusculas(document.getElementById('visitanteDocumento').value),
-                empresa: converterMaiusculas(document.getElementById('visitanteEmpresa').value),
-                visitado: converterMaiusculas(document.getElementById('visitanteVisitado').value),
-                observacoes: converterMaiusculas(document.getElementById('visitanteObs').value),
+                nome: converterMaiusculas(sanitizeInput(document.getElementById('visitanteNome').value, 100)),
+                documento: converterMaiusculas(sanitizeInput(document.getElementById('visitanteDocumento').value, 50)),
+                empresa: converterMaiusculas(sanitizeInput(document.getElementById('visitanteEmpresa').value, 100)),
+                visitado: converterMaiusculas(sanitizeInput(document.getElementById('visitanteVisitado').value, 100)),
+                observacoes: converterMaiusculas(sanitizeInput(document.getElementById('visitanteObs').value, 500)),
                 dataEntrada: new Date(),
                 dataSaida: null,
                 status: 'ativo',
@@ -2608,14 +2805,14 @@
                         <tbody>
                             ${ativos.map(v => `
                                 <tr>
-                                    <td><strong>${v.nome}</strong></td>
-                                    <td>${v.documento}</td>
-                                    <td>${v.empresa || '-'}</td>
-                                    <td>${v.visitado}</td>
+                                    <td><strong>${escapeHtml(v.nome)}</strong></td>
+                                    <td>${escapeHtml(v.documento)}</td>
+                                    <td>${escapeHtml(v.empresa || '-')}</td>
+                                    <td>${escapeHtml(v.visitado)}</td>
                                     <td>${formatDateTime(v.dataEntrada)}</td>
                                     <td>
                                         <div class="table-avatar" style="background: ${v.porteiroCor};">
-                                            ${getInitials(v.porteiroNome)}
+                                            ${escapeHtml(getInitials(v.porteiroNome))}
                                         </div>
                                     </td>
                                     ${!isSupervisor ? `
@@ -2658,15 +2855,15 @@
                         <tbody>
                             ${finalizados.map(v => `
                                 <tr>
-                                    <td><strong>${v.nome}</strong></td>
-                                    <td>${v.documento}</td>
-                                    <td>${v.empresa || '-'}</td>
+                                    <td><strong>${escapeHtml(v.nome)}</strong></td>
+                                    <td>${escapeHtml(v.documento)}</td>
+                                    <td>${escapeHtml(v.empresa || '-')}</td>
                                     <td>${formatDateTime(v.dataEntrada)}</td>
                                     <td>${formatDateTime(v.dataSaida)}</td>
                                     <td><strong>${calcularPermanenciaMinutos(v.dataEntrada, v.dataSaida)} minutos</strong></td>
                                     <td>
                                         <div class="table-avatar" style="background: ${v.porteiroCor};">
-                                            ${getInitials(v.porteiroNome)}
+                                            ${escapeHtml(getInitials(v.porteiroNome))}
                                         </div>
                                     </td>
                                 </tr>
@@ -2687,15 +2884,16 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const entrada = {
                 id: Date.now(),
-                transportadora: converterMaiusculas(document.getElementById('entradaTransportadora').value),
-                placa: capitalizarPlaca(document.getElementById('entradaPlaca').value),
-                motorista: converterMaiusculas(document.getElementById('entradaMotorista').value),
-                cliente: converterMaiusculas(document.getElementById('entradaCliente').value),
-                nota: converterMaiusculas(document.getElementById('entradaNota').value),
+                transportadora: converterMaiusculas(sanitizeInput(document.getElementById('entradaTransportadora').value, 100)),
+                placa: capitalizarPlaca(sanitizeInput(document.getElementById('entradaPlaca').value, 20)),
+                motorista: converterMaiusculas(sanitizeInput(document.getElementById('entradaMotorista').value, 100)),
+                cliente: converterMaiusculas(sanitizeInput(document.getElementById('entradaCliente').value, 100)),
+                nota: converterMaiusculas(sanitizeInput(document.getElementById('entradaNota').value, 50)),
                 peso: document.getElementById('entradaPeso').value,
-                volume: converterMaiusculas(document.getElementById('entradaVolume').value),
+                volume: converterMaiusculas(sanitizeInput(document.getElementById('entradaVolume').value, 50)),
                 dataEntrada: new Date(),
                 dataSaida: null,
                 status: 'patio',
@@ -2785,15 +2983,15 @@
                         <tbody>
                             ${patio.map(e => `
                                 <tr>
-                                    <td><strong>${e.transportadora}</strong></td>
-                                    <td>${e.placa}</td>
-                                    <td>${e.motorista}</td>
-                                    <td>${e.cliente || '-'}</td>
-                                    <td>${e.nota || '-'}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
+                                    <td>${escapeHtml(e.cliente || '-')}</td>
+                                    <td>${escapeHtml(e.nota || '-')}</td>
                                     <td>${formatDateTime(e.dataEntrada)}</td>
                                     <td>
                                         <div class="table-avatar" style="background: ${e.porteiroCor};">
-                                            ${getInitials(e.porteiroNome)}
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
                                         </div>
                                     </td>
                                     ${!isSupervisor ? `
@@ -2836,15 +3034,15 @@
                         <tbody>
                             ${finalizadas.map(e => `
                                 <tr>
-                                    <td><strong>${e.transportadora}</strong></td>
-                                    <td>${e.placa}</td>
-                                    <td>${e.motorista}</td>
+                                    <td><strong>${escapeHtml(e.transportadora)}</strong></td>
+                                    <td>${escapeHtml(e.placa)}</td>
+                                    <td>${escapeHtml(e.motorista)}</td>
                                     <td>${formatDateTime(e.dataEntrada)}</td>
                                     <td>${formatDateTime(e.dataSaida)}</td>
                                     <td><strong>${calcularPermanenciaMinutos(e.dataEntrada, e.dataSaida)} minutos</strong></td>
                                     <td>
                                         <div class="table-avatar" style="background: ${e.porteiroCor};">
-                                            ${getInitials(e.porteiroNome)}
+                                            ${escapeHtml(getInitials(e.porteiroNome))}
                                         </div>
                                     </td>
                                 </tr>
@@ -3307,7 +3505,7 @@
                                 <th>Nome</th>
                                 <th>CPF</th>
                                 <th>Telefone</th>
-                                <th>Email</th>
+                                <th>Placa do Veículo</th>
                                 <th>CNH</th>
                                 <th>Vencimento CNH</th>
                                 <th>Endereço</th>
@@ -3334,7 +3532,7 @@
                                         <td><strong>${m.nome}</strong></td>
                                         <td>${m.cpf}</td>
                                         <td>${m.telefone}</td>
-                                        <td>${m.email || '-'}</td>
+                                        <td><strong>${m.placa || '-'}</strong></td>
                                         <td>${m.cnh}</td>
                                         <td style="${statusColor}">${formatDate(m.vencimentoCNH)}${statusCNH}</td>
                                         <td>${m.endereco || '-'}</td>
@@ -3457,16 +3655,17 @@
                 return;
             }
             
+            // SECURITY: Sanitize all inputs
             const motorista = {
                 id: editingMotoristaId || Date.now(),
-                nome: converterMaiusculas(document.getElementById('motoristaNome').value),
-                cpf: converterMaiusculas(document.getElementById('motoristaCPF').value),
-                telefone: converterMaiusculas(document.getElementById('motoristaTelefone').value),
-                email: converterMaiusculas(document.getElementById('motoristaEmail').value),
-                cnh: converterMaiusculas(document.getElementById('motoristaCNH').value),
+                nome: converterMaiusculas(sanitizeInput(document.getElementById('motoristaNome').value, 100)),
+                cpf: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCPF').value, 20)),
+                telefone: converterMaiusculas(sanitizeInput(document.getElementById('motoristaTelefone').value, 20)),
+                placa: converterMaiusculas(sanitizeInput(document.getElementById('motoristaPlaca').value, 20)),
+                cnh: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCNH').value, 20)),
                 vencimentoCNH: document.getElementById('motoristaVencimentoCNH').value,
-                endereco: converterMaiusculas(document.getElementById('motoristaEndereco').value),
-                cidade: converterMaiusculas(document.getElementById('motoristaCidade').value),
+                endereco: converterMaiusculas(sanitizeInput(document.getElementById('motoristaEndereco').value, 200)),
+                cidade: converterMaiusculas(sanitizeInput(document.getElementById('motoristaCidade').value, 100)),
                 dataCadastro: editingMotoristaId ? motoristas.find(m => m.id === editingMotoristaId).dataCadastro : new Date(),
                 porteiroId: currentUser.id,
                 porteiroNome: currentUser.nome
@@ -3516,7 +3715,7 @@
             document.getElementById('motoristaNome').value = motorista.nome;
             document.getElementById('motoristaCPF').value = motorista.cpf;
             document.getElementById('motoristaTelefone').value = motorista.telefone;
-            document.getElementById('motoristaEmail').value = motorista.email;
+            document.getElementById('motoristaPlaca').value = motorista.placa || '';
             document.getElementById('motoristaCNH').value = motorista.cnh;
             document.getElementById('motoristaVencimentoCNH').value = motorista.vencimentoCNH;
             document.getElementById('motoristaEndereco').value = motorista.endereco;
@@ -3573,7 +3772,7 @@
                                 <th>Nome</th>
                                 <th>CPF</th>
                                 <th>Telefone</th>
-                                <th>Email</th>
+                                <th>Placa do Veículo</th>
                                 <th>CNH</th>
                                 <th>Vencimento CNH</th>
                                 <th>Cidade</th>
@@ -3589,13 +3788,13 @@
                                 
                                 return `
                                     <tr>
-                                        <td><strong>${m.nome}</strong></td>
-                                        <td>${m.cpf}</td>
-                                        <td>${m.telefone}</td>
-                                        <td>${m.email || '-'}</td>
-                                        <td>${m.cnh}</td>
+                                        <td><strong>${escapeHtml(m.nome)}</strong></td>
+                                        <td>${escapeHtml(m.cpf)}</td>
+                                        <td>${escapeHtml(m.telefone)}</td>
+                                        <td><strong>${escapeHtml(m.placa || '-')}</strong></td>
+                                        <td>${escapeHtml(m.cnh)}</td>
                                         <td style="${vencimentoClass}">${formatDate(m.vencimentoCNH)}${diasRestantes < 30 && diasRestantes >= 0 ? ' ⚠️' : ''}${diasRestantes < 0 ? ' ❌ VENCIDA' : ''}</td>
-                                        <td>${m.cidade || '-'}</td>
+                                        <td>${escapeHtml(m.cidade || '-')}</td>
                                         <td>
                                             <button class="table-btn" style="background: #C41E1E; color: white; margin-right: 5px;" onclick="editarMotorista(${m.id})">
                                                 ✏️ EDITAR
@@ -3642,7 +3841,8 @@
             const motoristasResults = motoristas.filter(m => 
                 m.nome.toLowerCase().includes(searchTerm) ||
                 m.cpf.toLowerCase().includes(searchTerm) ||
-                m.cnh.toLowerCase().includes(searchTerm)
+                m.cnh.toLowerCase().includes(searchTerm) ||
+                (m.placa && m.placa.toLowerCase().includes(searchTerm))
             );
 
             if (visitantesResults.length === 0 && entradasResults.length === 0 && motoristasResults.length === 0) {
@@ -4711,7 +4911,213 @@
             return '(' + celular.substring(0, 2) + ') ' + celular.substring(2, 7) + '-' + celular.substring(7);
         }
 
-        // Handle Enter key on password field
+        // =========== MOTORISTAS E/S FUNCTIONS ===========
+        
+        function registrarEntradaMotorista(event) {
+            event.preventDefault();
+
+            // SECURITY: Block SUPERVISOR from creating
+            if (currentUser && currentUser.perfil === 'SUPERVISOR') {
+                alert('❌ SEM PERMISSÃO\n\nSupervisores não podem criar ou modificar dados.');
+                return;
+            }
+
+            const motoristaId = document.getElementById('motoristaESSelect').value;
+            const veiculo = document.getElementById('esVeiculo').value;
+            const destino = document.getElementById('esDestino').value;
+            const notaFiscal = document.getElementById('esNotaFiscal').value;
+            const peso = document.getElementById('esPeso').value;
+            const volume = document.getElementById('esVolume').value;
+            const observacoes = document.getElementById('esObservacoes').value;
+
+            if (!motoristaId || !veiculo) {
+                alert('Preencha todos os campos obrigatórios!');
+                return;
+            }
+
+            const motorista = motoristas.find(m => m.id == motoristaId);
+            if (!motorista) {
+                alert('Motorista não encontrado!');
+                return;
+            }
+
+            // SECURITY: Sanitize all inputs
+            const entrada = {
+                id: Date.now(),
+                motoristaId: motoristaId,
+                motoristaNome: motorista.nome,
+                veiculo: converterMaiusculas(sanitizeInput(veiculo, 50)),
+                destino: converterMaiusculas(sanitizeInput(destino, 100)),
+                notaFiscal: converterMaiusculas(sanitizeInput(notaFiscal, 50)),
+                peso: peso ? parseFloat(peso) : null,
+                volume: converterMaiusculas(sanitizeInput(volume, 50)),
+                observacoes: converterMaiusculas(sanitizeInput(observacoes, 500)),
+                dataHoraSaida: new Date().toLocaleString('pt-BR'),
+                dataHoraRetorno: null,
+                status: 'em transito',
+                porteiroId: currentUser.id,
+                porteiroNome: currentUser.nome
+            };
+
+            motoristasES.push(entrada);
+            addAuditLog('CRIAR_ENTRADA_MOTORISTA', `${currentUser.nome} registrou saída do motorista: ${motorista.nome}`);
+            salvarDados();
+            resetFormMotoristaES();
+            renderMotoristasES();
+            alert('✅ Saída de motorista registrada com sucesso!\n\nMotorista: ' + motorista.nome + '\nVeículo: ' + entrada.veiculo);
+        }
+
+        function resetFormMotoristaES() {
+            document.getElementById('motoristaESForm').reset();
+        }
+
+        function registrarRetornoMotorista(id) {
+            // SECURITY: Block SUPERVISOR from modifying
+            if (currentUser && currentUser.perfil === 'SUPERVISOR') {
+                alert('❌ SEM PERMISSÃO\n\nSupervisores não podem modificar dados.');
+                return;
+            }
+
+            const entrada = motoristasES.find(e => e.id === id);
+            if (!entrada) {
+                alert('❌ Erro: Entrada não encontrada!');
+                return;
+            }
+
+            if (confirm('Registrar RETORNO do motorista: ' + entrada.motoristaNome + '?')) {
+                entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
+                entrada.status = 'retornado';
+                addAuditLog('RETORNO_MOTORISTA', `${currentUser.nome} registrou retorno do motorista: ${entrada.motoristaNome}`);
+                salvarDados();
+                renderMotoristasES();
+                alert('✅ Retorno registrado com sucesso!');
+            }
+        }
+
+        function renderMotoristasES() {
+            // Populate motorista select dropdown
+            const select = document.getElementById('motoristaESSelect');
+            select.innerHTML = '<option value="">Selecione...</option>';
+            motoristas.forEach(m => {
+                select.innerHTML += `<option value="${m.id}">${escapeHtml(m.nome)}</option>`;
+            });
+
+            // Add event listener to auto-populate placa when motorista is selected
+            select.onchange = function() {
+                const motoristaId = this.value;
+                if (motoristaId) {
+                    const motorista = motoristas.find(m => m.id == motoristaId);
+                    if (motorista && motorista.placa) {
+                        document.getElementById('esVeiculo').value = motorista.placa;
+                    }
+                } else {
+                    document.getElementById('esVeiculo').value = '';
+                }
+            };
+
+            const isSupervisor = currentUser && currentUser.perfil === 'SUPERVISOR';
+
+            // Render motoristas em trânsito
+            const transitoContainer = document.getElementById('motoristasTransitoContainer');
+            const emTransito = motoristasES.filter(e => e.status === 'em transito');
+            
+            if (emTransito.length === 0) {
+                transitoContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🚗</div>
+                        <div class="empty-state-text">Nenhum motorista em trânsito</div>
+                    </div>
+                `;
+            } else {
+                transitoContainer.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Motorista</th>
+                                <th>Veículo</th>
+                                <th>Destino</th>
+                                <th>Nota Fiscal</th>
+                                <th>Peso (kg)</th>
+                                <th>Volume</th>
+                                <th>Saída</th>
+                                <th>Observações</th>
+                                ${!isSupervisor ? '<th>Ação</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${emTransito.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
+                                    <td>${escapeHtml(e.veiculo)}</td>
+                                    <td>${escapeHtml(e.destino || '-')}</td>
+                                    <td>${escapeHtml(e.notaFiscal || '-')}</td>
+                                    <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
+                                    <td>${escapeHtml(e.volume || '-')}</td>
+                                    <td>${e.dataHoraSaida}</td>
+                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                    ${!isSupervisor ? `
+                                        <td>
+                                            <button class="table-btn btn-exit" onclick="registrarRetornoMotorista(${e.id})">
+                                                ✅ RETORNO
+                                            </button>
+                                        </td>
+                                    ` : ''}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Render retornos finalizados hoje
+            const retornosContainer = document.getElementById('motoristasRetornosContainer');
+            const hoje = new Date().toLocaleDateString('pt-BR');
+            const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
+            
+            if (retornosHoje.length === 0) {
+                retornosContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">✅</div>
+                        <div class="empty-state-text">Nenhum retorno finalizado hoje</div>
+                    </div>
+                `;
+            } else {
+                retornosContainer.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Motorista</th>
+                                <th>Veículo</th>
+                                <th>Destino</th>
+                                <th>Nota Fiscal</th>
+                                <th>Peso (kg)</th>
+                                <th>Volume</th>
+                                <th>Saída</th>
+                                <th>Retorno</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${retornosHoje.map(e => `
+                                <tr>
+                                    <td><strong>${escapeHtml(e.motoristaNome)}</strong></td>
+                                    <td>${escapeHtml(e.veiculo)}</td>
+                                    <td>${escapeHtml(e.destino || '-')}</td>
+                                    <td>${escapeHtml(e.notaFiscal || '-')}</td>
+                                    <td>${e.peso ? e.peso.toFixed(2) : '-'}</td>
+                                    <td>${escapeHtml(e.volume || '-')}</td>
+                                    <td>${e.dataHoraSaida}</td>
+                                    <td>${e.dataHoraRetorno}</td>
+                                    <td>${escapeHtml(e.observacoes || '-')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+        }
+
+        // Handle Enter key on password field and initialize system
         document.addEventListener('DOMContentLoaded', function() {
             const passwordInput = document.getElementById('passwordInput');
             if (passwordInput) {
@@ -4721,95 +5127,6 @@
                     }
                 });
             }
-
-                    // =========== MOTORISTAS E/S FUNCTIONS ===========
-
-                    function registrarEntradaMotorista(event) {
-                                    event.preventDefault();
-
-                                    const motoristaId = document.getElementById('motoristaESSelect').value;
-                                    const motivo = document.getElementById('motivoES').value;
-                                    const observacoes = document.getElementById('observacoesES').value;
-
-                                    if (!motoristaId || !motivo) {
-                                                        alert('Preencha todos os campos obrigatórios!');
-                                                        return;
-                                                    }
-
-                                    const motorista = motoristas.find(m => m.id == motoristaId);
-                                    if (!motorista) {
-                                                        alert('Motorista não encontrado!');
-                                                        return;
-                                                    }
-
-                                    const entrada = {
-                                                        id: Date.now(),
-                                                        motoristaId: motoristaId,
-                                                        motoristaNome: motorista.nome,
-                                                        motivo: motivo,
-                                                        observacoes: observacoes,
-                                                        dataHoraSaida: new Date().toLocaleString('pt-BR'),
-                                                        dataHoraRetorno: null,
-                                                        status: 'em transito'
-                                                                        };
-
-                                    motoristasES.push(entrada);
-                                    salvarDados();
-                                    resetFormMotoristaES();
-                                    renderMotoristasES();
-                                    alert('Saída registrada com sucesso!');
-                                }
-
-                    function resetFormMotoristaES() {
-                                    document.getElementById('formMotoristaES').reset();
-                                }
-
-                    function registrarRetornoMotorista(id) {
-                                    const entrada = motoristasES.find(e => e.id === id);
-                                    if (entrada) {
-                                                        entrada.dataHoraRetorno = new Date().toLocaleString('pt-BR');
-                                                        entrada.status = 'retornado';
-                                                        salvarDados();
-                                                        renderMotoristasES();
-                                                        alert('Retorno registrado!');
-                                                    }
-                                }
-
-                    function renderMotoristasES() {
-                                    // Populate motorista select dropdown
-                                    const select = document.getElementById('motoristaESSelect');
-                                    select.innerHTML = '<option value="">Selecione...</option>';
-                                    motoristas.forEach(m => {
-                                                        select.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
-                                                    });
-
-                                    // Render motoristas em trânsito
-                                    const transitoTbody = document.getElementById('motoristasTransitoTbody');
-                                    const emTransito = motoristasES.filter(e => e.status === 'em transito');
-                                    transitoTbody.innerHTML = emTransito.map(e => `
-                                                    <tr>
-                                                                        <td>${e.motoristaNome}</td>
-                                                                                            <td>${e.motivo}</td>
-                                                                                                                <td>${e.dataHoraSaida}</td>
-                                                                                                                                    <td>${e.observacoes || '-'}</td>
-                                                                                                                                                        <td><button onclick="registrarRetornoMotorista(${e.id})" class="btn-success">Registrar Retorno</button></td>
-                                                                                                                                                                        </tr>
-                                                                                                                                                                                    `).join('') || '<tr><td colspan="5" style="text-align:center;">Nenhum motorista em trânsito</td></tr>';
-
-                                    // Render retornos finalizados hoje
-                                    const retornosTbody = document.getElementById('retornosFinalizadosTbody');
-                                    const hoje = new Date().toLocaleDateString('pt-BR');
-                                    const retornosHoje = motoristasES.filter(e => e.status === 'retornado' && e.dataHoraRetorno && e.dataHoraRetorno.includes(hoje));
-                                    retornosTbody.innerHTML = retornosHoje.map(e => `
-                                                    <tr>
-                                                                        <td>${e.motoristaNome}</td>
-                                                                                            <td>${e.motivo}</td>
-                                                                                                                <td>${e.dataHoraSaida}</td>
-                                                                                                                                    <td>${e.dataHoraRetorno}</td>
-                                                                                                                                                        <td>${e.observacoes || '-'}</td>
-                                                                                                                                                                        </tr>
-                                                                                                                                                                                    `).join('') || '<tr><td colspan="5" style="text-align:center;">Nenhum retorno finalizado hoje</td></tr>';
-                                }
             
             // Initialize audit log
             addAuditLog('SISTEMA_INICIADO', 'Sistema iniciado com sucesso');
